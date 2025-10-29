@@ -21,14 +21,14 @@ final authStateListenableProvider = Provider<ValueNotifier<int>>((ref) {
 });
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  return AuthRepository(ref.read);
+  return AuthRepository(ref);
 });
 
 class AuthRepository {
-  AuthRepository(this._read);
-  final Reader _read;
+  AuthRepository(this._ref);
+  final Ref _ref;
 
-  SupabaseClient get _client => _read(supabaseProvider);
+  SupabaseClient get _client => _ref.read(supabaseProvider);
 
   Future<AuthResponse> signInWithEmailPassword({required String email, required String password}) {
     return _client.auth.signInWithPassword(email: email, password: password);
