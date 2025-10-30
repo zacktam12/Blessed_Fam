@@ -84,7 +84,7 @@ class _TopToastState extends State<_TopToast> with SingleTickerProviderStateMixi
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: EdgeInsets.only(top: 8.0, left: 16.0, right: 16.0),
+          padding: const EdgeInsets.only(top: 8.0, left: 16.0, right: 16.0),
           child: SlideTransition(
             position: _offset,
             child: Material(
