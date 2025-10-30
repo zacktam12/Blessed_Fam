@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -16,19 +17,37 @@ class UserRepository {
 
   Future<UserProfile?> getCurrentUserProfile() async {
     final uid = _client.auth.currentUser?.id;
-    if (uid == null) return null;
+    if (uid == null) {
+      debugPrint('getCurrentUserProfile: No authenticated user');
+      return null;
+    }
+
     try {
-      final res = await _client.from('users').select().eq('id', uid).maybeSingle();
-      if (res == null) return null;
-      return UserProfile.fromJson(res);
-    } on PostgrestException {
-      // If RLS/policy temporarily blocks or row missing, avoid blocking UI
+      debugPrint('getCurrentUserProfile: Fetching profile for user $uid');
+      final res =
+          await _client.from('users').select().eq('id', uid).maybeSingle();
+
+      if (res == null) {
+        debugPrint('getCurrentUserProfile: No profile found for user $uid');
+        return null;
+      }
+
+      final profile = UserProfile.fromJson(res);
+      debugPrint(
+          'getCurrentUserProfile: Found profile - Role: ${profile.role}, Name: ${profile.name}');
+      return profile;
+    } on PostgrestException catch (e) {
+      debugPrint('getCurrentUserProfile: PostgrestException - ${e.message}');
+      return null;
+    } catch (e) {
+      debugPrint('getCurrentUserProfile: Unexpected error - $e');
       return null;
     }
   }
 
   Future<List<UserProfile>> listAllUsers() async {
-    final res = await _client.from('users').select().order('name', ascending: true);
+    final res =
+        await _client.from('users').select().order('name', ascending: true);
     return (res as List<dynamic>)
         .map((e) => UserProfile.fromJson(e as Map<String, dynamic>))
         .toList();
@@ -45,4 +64,3 @@ class UserRepository {
     return all.where((u) => setIds.contains(u.id)).toList();
   }
 }
-

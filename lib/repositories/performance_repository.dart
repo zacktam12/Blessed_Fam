@@ -14,9 +14,15 @@ class PerformanceRepository {
 
   SupabaseClient get _client => _ref.read(supabaseProvider);
 
-  Future<List<PerformanceWeekly>> fetchWeek({required DateTime weekStart}) async {
+  Future<List<PerformanceWeekly>> fetchWeek(
+      {required DateTime weekStart}) async {
     final isoDate = weekStart.toIso8601String().substring(0, 10);
-    final res = await _client.from('performance').select().eq('week_start_date', isoDate).order('rank');
+    // Order by total_score descending to get highest scores first
+    final res = await _client
+        .from('performance')
+        .select()
+        .eq('week_start_date', isoDate)
+        .order('total_score', ascending: false);
     return (res as List<dynamic>)
         .map((e) => PerformanceWeekly.fromJson(e as Map<String, dynamic>))
         .toList();
@@ -29,4 +35,3 @@ class PerformanceRepository {
     });
   }
 }
-
