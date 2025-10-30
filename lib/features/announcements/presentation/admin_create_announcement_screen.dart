@@ -17,9 +17,17 @@ class _AdminCreateAnnouncementScreenState extends ConsumerState<AdminCreateAnnou
   bool _notify = true;
   bool _saving = false;
 
+  String _sanitizeInput(String input) {
+    // Basic XSS protection - remove/escape HTML-like tags
+    return input
+        .replaceAll(RegExp(r'<[^>]*>'), '') // Remove HTML tags
+        .replaceAll(RegExp(r'[<>]'), '') // Remove remaining < and >
+        .trim();
+  }
+
   Future<void> _save() async {
-    final title = _title.text.trim();
-    final message = _message.text.trim();
+    final title = _sanitizeInput(_title.text);
+    final message = _sanitizeInput(_message.text);
     
     // Validation
     if (title.isEmpty) {
@@ -32,6 +40,11 @@ class _AdminCreateAnnouncementScreenState extends ConsumerState<AdminCreateAnnou
       return;
     }
     
+    if (title.length > 100) {
+      showTopError(context, 'Title must be less than 100 characters');
+      return;
+    }
+    
     if (message.isEmpty) {
       showTopError(context, 'Message is required');
       return;
@@ -39,6 +52,11 @@ class _AdminCreateAnnouncementScreenState extends ConsumerState<AdminCreateAnnou
     
     if (message.length < 10) {
       showTopError(context, 'Message must be at least 10 characters');
+      return;
+    }
+    
+    if (message.length > 5000) {
+      showTopError(context, 'Message must be less than 5000 characters');
       return;
     }
     
@@ -75,13 +93,26 @@ class _AdminCreateAnnouncementScreenState extends ConsumerState<AdminCreateAnnou
         padding: const EdgeInsets.all(16),
         child: ListView(
           children: [
-            TextField(controller: _title, decoration: const InputDecoration(labelText: 'Title')),
+            TextField(
+              controller: _title,
+              decoration: const InputDecoration(
+                labelText: 'Title',
+                helperText: 'Max 100 characters',
+                counterText: '',
+              ),
+              maxLength: 100,
+            ),
             const SizedBox(height: 12),
             TextField(
               controller: _message,
-              decoration: const InputDecoration(labelText: 'Message'),
+              decoration: const InputDecoration(
+                labelText: 'Message',
+                helperText: 'Max 5000 characters',
+                alignLabelWithHint: true,
+              ),
               minLines: 4,
               maxLines: 8,
+              maxLength: 5000,
             ),
             const SizedBox(height: 12),
             SwitchListTile(

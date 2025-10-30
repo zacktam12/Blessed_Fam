@@ -20,8 +20,9 @@ class AnnouncementsScreen extends ConsumerWidget {
           final listAsync = ref2.watch(announcementsListProvider(20));
           return listAsync.when(
             data: (data) {
-              if (data.isEmpty)
+              if (data.isEmpty) {
                 return const _EmptyState(message: 'No announcements yet');
+              }
               return isAdminAsync.when(
                 data: (isAdmin) => ListView.separated(
                   padding: const EdgeInsets.all(12),
@@ -91,7 +92,7 @@ class _AnnouncementCardState extends State<_AnnouncementCard> {
     final isLongText = a.message.length > 200;
 
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 0),
+      margin: const EdgeInsets.symmetric(vertical: 4),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
@@ -141,7 +142,8 @@ class _AnnouncementCardState extends State<_AnnouncementCard> {
                 a.message,
                 style: textStyle,
                 maxLines: _isExpanded ? null : 4,
-                overflow: _isExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
+                overflow:
+                    _isExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
               ),
 
             // View More/Less Button
@@ -151,7 +153,8 @@ class _AnnouncementCardState extends State<_AnnouncementCard> {
                 child: TextButton(
                   onPressed: () => setState(() => _isExpanded = !_isExpanded),
                   style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),

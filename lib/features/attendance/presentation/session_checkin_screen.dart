@@ -11,9 +11,9 @@ import '../../../core/providers/supabase_provider.dart';
 
 class SessionCheckinScreen extends ConsumerStatefulWidget {
   const SessionCheckinScreen({
-    super.key, 
-    required this.sessionId, 
-    required this.sessionName, 
+    super.key,
+    required this.sessionId,
+    required this.sessionName,
     required this.trackTime,
     this.initialDate,
   });
@@ -23,13 +23,15 @@ class SessionCheckinScreen extends ConsumerStatefulWidget {
   final DateTime? initialDate;
 
   @override
-  ConsumerState<SessionCheckinScreen> createState() => _SessionCheckinScreenState();
+  ConsumerState<SessionCheckinScreen> createState() =>
+      _SessionCheckinScreenState();
 }
 
 class _SessionCheckinScreenState extends ConsumerState<SessionCheckinScreen> {
   late DateTime _date;
   final Set<String> _loadingUserIds = {};
-  final Map<String, String> _userAttendance = {}; // userId -> status (present/absent)
+  final Map<String, String> _userAttendance =
+      {}; // userId -> status (present/absent)
   bool _showOnlyUnmarked = false;
   RealtimeChannel? _realtimeChannel;
   bool _isRealtimeConnected = false;
@@ -53,7 +55,9 @@ class _SessionCheckinScreenState extends ConsumerState<SessionCheckinScreen> {
 
   Future<void> _loadChecked() async {
     try {
-      final records = await ref.read(attendanceRepositoryProvider).fetchForSessionDate(sessionId: widget.sessionId, date: _date);
+      final records = await ref
+          .read(attendanceRepositoryProvider)
+          .fetchForSessionDate(sessionId: widget.sessionId, date: _date);
       if (mounted) {
         setState(() {
           _userAttendance.clear();
@@ -70,14 +74,14 @@ class _SessionCheckinScreenState extends ConsumerState<SessionCheckinScreen> {
   void _setupRealtimeSubscription() {
     try {
       final supabase = ref.read(supabaseProvider);
-      
+
       // Unsubscribe from previous channel if exists
       _realtimeChannel?.unsubscribe();
-      
+
       // Create a unique channel name for this session and date
       final isoDate = _date.toIso8601String().substring(0, 10);
       final channelName = 'attendance_${widget.sessionId}_$isoDate';
-      
+
       _realtimeChannel = supabase
           .channel(channelName)
           .onPostgresChanges(
@@ -98,29 +102,18 @@ class _SessionCheckinScreenState extends ConsumerState<SessionCheckinScreen> {
             },
           )
           .subscribe(
-            (status, error) {
-              if (mounted) {
-                setState(() {
-                  _isRealtimeConnected = status == RealtimeSubscribeStatus.subscribed;
-                });
-                if (status == RealtimeSubscribeStatus.subscribed) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Row(
-                        children: [
-                          Icon(Icons.wifi, color: Colors.green.shade300),
-                          const SizedBox(width: 8),
-                          const Text('Live updates enabled'),
-                        ],
-                      ),
-                      duration: const Duration(seconds: 2),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                }
-              }
-            },
-          );
+        (status, error) {
+          if (mounted) {
+            setState(() {
+              _isRealtimeConnected =
+                  status == RealtimeSubscribeStatus.subscribed;
+            });
+            if (status == RealtimeSubscribeStatus.subscribed) {
+              showTopSuccess(context, 'Live updates enabled');
+            }
+          }
+        },
+      );
     } catch (e) {
       debugPrint('Realtime subscription error: $e');
     }
@@ -143,29 +136,7 @@ class _SessionCheckinScreenState extends ConsumerState<SessionCheckinScreen> {
 
       // Show a subtle notification for changes made by others
       if (!_loadingUserIds.contains(userId)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                Icon(
-                  status == 'present' ? Icons.check_circle : Icons.cancel,
-                  color: status == 'present' ? Colors.green.shade300 : Colors.red.shade300,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    'Attendance updated by another admin',
-                    style: TextStyle(fontSize: 13),
-                  ),
-                ),
-              ],
-            ),
-            duration: const Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: Colors.blue.shade800,
-          ),
-        );
+        showTopSuccess(context, 'Attendance updated by another admin');
       }
     }
   }
@@ -200,7 +171,8 @@ class _SessionCheckinScreenState extends ConsumerState<SessionCheckinScreen> {
           _userAttendance[user.id] = status;
         });
         final statusText = status == 'present' ? 'Present' : 'Absent';
-        showTopSuccess(context, 'Marked ${user.name ?? user.email} as $statusText');
+        showTopSuccess(
+            context, 'Marked ${user.name ?? user.email} as $statusText');
       }
     } catch (e) {
       if (mounted) {
@@ -212,7 +184,8 @@ class _SessionCheckinScreenState extends ConsumerState<SessionCheckinScreen> {
   }
 
   Future<void> _markAllPresent(List<UserProfile> users) async {
-    final unmarked = users.where((u) => !_userAttendance.containsKey(u.id)).toList();
+    final unmarked =
+        users.where((u) => !_userAttendance.containsKey(u.id)).toList();
     if (unmarked.isEmpty) {
       showTopError(context, 'All users already marked');
       return;
@@ -247,7 +220,7 @@ class _SessionCheckinScreenState extends ConsumerState<SessionCheckinScreen> {
   Widget build(BuildContext context) {
     final dateLabel = DateFormat('EEE, MMM d').format(_date);
     final colorScheme = Theme.of(context).colorScheme;
-    
+
     return Scaffold(
       appBar: AppBar(
         title: Column(
@@ -284,9 +257,12 @@ class _SessionCheckinScreenState extends ConsumerState<SessionCheckinScreen> {
         ),
         actions: [
           IconButton(
-            icon: Icon(_showOnlyUnmarked ? Icons.filter_alt : Icons.filter_alt_outlined),
+            icon: Icon(_showOnlyUnmarked
+                ? Icons.filter_alt
+                : Icons.filter_alt_outlined),
             tooltip: _showOnlyUnmarked ? 'Show All' : 'Show Unmarked',
-            onPressed: () => setState(() => _showOnlyUnmarked = !_showOnlyUnmarked),
+            onPressed: () =>
+                setState(() => _showOnlyUnmarked = !_showOnlyUnmarked),
           ),
         ],
       ),
@@ -294,10 +270,18 @@ class _SessionCheckinScreenState extends ConsumerState<SessionCheckinScreen> {
         children: [
           // Header Section
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [colorScheme.primaryContainer, colorScheme.secondaryContainer],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  colorScheme.primaryContainer.withOpacity(0.7),
+                  colorScheme.secondaryContainer.withOpacity(0.7),
+                ],
+              ),
+              border: Border(
+                bottom: BorderSide(color: colorScheme.outlineVariant),
               ),
             ),
             child: Column(
@@ -307,43 +291,56 @@ class _SessionCheckinScreenState extends ConsumerState<SessionCheckinScreen> {
                     Expanded(
                       child: FilledButton.tonalIcon(
                         onPressed: _pickDate,
-                        icon: const Icon(Icons.calendar_today),
-                        label: Text(dateLabel),
+                        icon: const Icon(Icons.calendar_today, size: 20),
+                        label: Text(dateLabel,
+                            style: const TextStyle(fontSize: 15)),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 14),
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 12),
                     if (widget.trackTime)
                       Chip(
-                        label: const Text('Time-tracked'),
+                        label: const Text('Time-tracked',
+                            style: TextStyle(fontSize: 13)),
                         avatar: const Icon(Icons.schedule, size: 18),
                         backgroundColor: colorScheme.tertiaryContainer,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
                       )
                     else
                       Chip(
-                        label: const Text('Attendance only'),
+                        label: const Text('Attendance only',
+                            style: TextStyle(fontSize: 13)),
                         avatar: const Icon(Icons.event_available, size: 18),
                         backgroundColor: colorScheme.tertiaryContainer,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
                       ),
                   ],
                 ),
               ],
             ),
           ),
-          
+
           // Stats and Actions Bar
           FutureBuilder<List<UserProfile>>(
             future: ref.read(userRepositoryProvider).listAllUsers(),
             builder: (context, snapshot) {
               if (!snapshot.hasData) return const SizedBox.shrink();
               final users = snapshot.data!;
-              final presentCount = _userAttendance.values.where((s) => s == 'present').length;
-              final absentCount = _userAttendance.values.where((s) => s == 'absent').length;
+              final presentCount =
+                  _userAttendance.values.where((s) => s == 'present').length;
+              final absentCount =
+                  _userAttendance.values.where((s) => s == 'absent').length;
               final unmarkedCount = users.length - presentCount - absentCount;
-              
+
               return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest.withOpacity(0.3),
+                  color: colorScheme.surfaceContainerHighest.withOpacity(0.5),
                   border: Border(
                     bottom: BorderSide(color: colorScheme.outlineVariant),
                   ),
@@ -357,30 +354,33 @@ class _SessionCheckinScreenState extends ConsumerState<SessionCheckinScreen> {
                           icon: Icons.check_circle,
                           label: 'Present',
                           count: presentCount,
-                          color: Colors.green,
+                          color: Colors.green.shade600,
                         ),
                         _StatChip(
                           icon: Icons.cancel,
                           label: 'Absent',
                           count: absentCount,
-                          color: Colors.red,
+                          color: Colors.red.shade600,
                         ),
                         _StatChip(
                           icon: Icons.radio_button_unchecked,
                           label: 'Unmarked',
                           count: unmarkedCount,
-                          color: Colors.grey,
+                          color: Colors.grey.shade600,
                         ),
                       ],
                     ),
                     if (unmarkedCount > 0) ...[
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 12),
                       SizedBox(
                         width: double.infinity,
-                        child: OutlinedButton.icon(
+                        child: FilledButton.tonalIcon(
                           onPressed: () => _markAllPresent(users),
-                          icon: const Icon(Icons.done_all, size: 18),
+                          icon: const Icon(Icons.done_all, size: 20),
                           label: const Text('Mark All Present'),
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
                         ),
                       ),
                     ],
@@ -389,7 +389,7 @@ class _SessionCheckinScreenState extends ConsumerState<SessionCheckinScreen> {
               );
             },
           ),
-          
+
           // Users List
           Expanded(
             child: FutureBuilder<List<UserProfile>>(
@@ -402,32 +402,37 @@ class _SessionCheckinScreenState extends ConsumerState<SessionCheckinScreen> {
                   return Center(child: Text('Error: ${snapshot.error}'));
                 }
                 final allUsers = snapshot.data ?? [];
-                if (allUsers.isEmpty) return const Center(child: Text('No participants'));
-                
+                if (allUsers.isEmpty)
+                  return const Center(child: Text('No participants'));
+
                 final users = _showOnlyUnmarked
-                    ? allUsers.where((u) => !_userAttendance.containsKey(u.id)).toList()
+                    ? allUsers
+                        .where((u) => !_userAttendance.containsKey(u.id))
+                        .toList()
                     : allUsers;
-                
+
                 if (users.isEmpty) {
                   return const Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.check_circle_outline, size: 64, color: Colors.green),
+                        Icon(Icons.check_circle_outline,
+                            size: 64, color: Colors.green),
                         SizedBox(height: 16),
-                        Text('All members marked!', style: TextStyle(fontSize: 18)),
+                        Text('All members marked!',
+                            style: TextStyle(fontSize: 18)),
                       ],
                     ),
                   );
                 }
-                
+
                 return ListView.separated(
                   padding: const EdgeInsets.all(12),
                   itemBuilder: (c, i) {
                     final u = users[i];
                     final busy = _loadingUserIds.contains(u.id);
                     final status = _userAttendance[u.id];
-                    
+
                     return _UserAttendanceTile(
                       user: u,
                       status: status,
@@ -516,19 +521,31 @@ class _UserAttendanceTile extends StatelessWidget {
             ? Colors.green.shade50
             : isAbsent
                 ? Colors.red.shade50
-                : null,
+                : colorScheme.surface,
         border: Border.all(
           color: isPresent
-              ? Colors.green.shade200
+              ? Colors.green.shade300
               : isAbsent
-                  ? Colors.red.shade200
-                  : Colors.transparent,
-          width: isMarked ? 2 : 0,
+                  ? Colors.red.shade300
+                  : colorScheme.outlineVariant,
+          width: isMarked ? 2 : 1,
         ),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: isMarked
+            ? [
+                BoxShadow(
+                  color: isPresent
+                      ? Colors.green.withOpacity(0.15)
+                      : Colors.red.withOpacity(0.15),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+            : null,
       ),
-      margin: const EdgeInsets.symmetric(vertical: 4),
+      margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
       child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         leading: CircleAvatar(
           backgroundColor: isPresent
               ? Colors.green.shade100
@@ -552,11 +569,14 @@ class _UserAttendanceTile extends StatelessWidget {
           user.name ?? user.email,
           style: TextStyle(
             fontWeight: isMarked ? FontWeight.w600 : FontWeight.normal,
+            color: colorScheme.onSurface,
           ),
         ),
         subtitle: Text(
           user.email,
-          style: Theme.of(context).textTheme.bodySmall,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurface.withOpacity(0.7),
+              ),
         ),
         trailing: isLoading
             ? const SizedBox(
@@ -576,9 +596,8 @@ class _UserAttendanceTile extends StatelessWidget {
                             : Colors.red.shade700,
                       ),
                     ),
-                    backgroundColor: isPresent
-                        ? Colors.green.shade100
-                        : Colors.red.shade100,
+                    backgroundColor:
+                        isPresent ? Colors.green.shade100 : Colors.red.shade100,
                     side: BorderSide.none,
                     deleteIcon: const Icon(Icons.edit, size: 16),
                     onDeleted: () => _showChangeStatusDialog(context),
@@ -591,7 +610,8 @@ class _UserAttendanceTile extends StatelessWidget {
                         icon: const Icon(Icons.check, size: 16),
                         label: const Text('Present'),
                         style: FilledButton.styleFrom(
-                          backgroundColor: Colors.green,
+                          backgroundColor: Colors.green.shade600,
+                          foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,
                             vertical: 8,
@@ -604,8 +624,9 @@ class _UserAttendanceTile extends StatelessWidget {
                         icon: const Icon(Icons.close, size: 16),
                         label: const Text('Absent'),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.red,
-                          side: const BorderSide(color: Colors.red),
+                          foregroundColor: Colors.red.shade700,
+                          side:
+                              BorderSide(color: Colors.red.shade700, width: 2),
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,
                             vertical: 8,
@@ -623,7 +644,8 @@ class _UserAttendanceTile extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Change Status'),
-        content: Text('Change attendance status for ${user.name ?? user.email}?'),
+        content:
+            Text('Change attendance status for ${user.name ?? user.email}?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -637,7 +659,10 @@ class _UserAttendanceTile extends StatelessWidget {
               },
               icon: const Icon(Icons.close),
               label: const Text('Mark Absent'),
-              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.red.shade700,
+                foregroundColor: Colors.white,
+              ),
             )
           else
             FilledButton.icon(
@@ -647,12 +672,13 @@ class _UserAttendanceTile extends StatelessWidget {
               },
               icon: const Icon(Icons.check),
               label: const Text('Mark Present'),
-              style: FilledButton.styleFrom(backgroundColor: Colors.green),
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.green.shade600,
+                foregroundColor: Colors.white,
+              ),
             ),
         ],
       ),
     );
   }
 }
-
-

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/auth_providers.dart';
+import '../../../core/utils/flash.dart';
 // note: supabase provider and developer logging removed — handled at app level
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -18,7 +19,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
   bool _obscure = true;
-  String? _error;
 
   String? _validateEmail(String? value) {
     if (value == null || value.trim().isEmpty) {
@@ -75,7 +75,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     setState(() {
       _isLoading = true;
-      _error = null;
     });
 
     try {
@@ -99,9 +98,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         // Profile doesn't exist - sign out and show error
         await ref.read(authRepositoryProvider).signOut();
         if (mounted) {
-          setState(() => _error =
-              'No user profile found. Please contact the administrator.');
-          _isLoading = false;
+          setState(() => _isLoading = false);
+          showTopError(context, 'No user profile found. Please contact the administrator.');
         }
         return;
       }
@@ -113,7 +111,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       // Navigate to home
       if (mounted) context.go('/');
     } catch (e) {
-      setState(() => _error = _getReadableError(e));
+      if (mounted) {
+        showTopError(context, _getReadableError(e));
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -121,29 +121,57 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    
     return Scaffold(
       appBar: AppBar(title: const Text('Sign in')),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 420),
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Form(
               key: _formKey,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
-                    'Welcome to BlessedFam',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+                  // Welcome Header
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          colorScheme.primaryContainer,
+                          colorScheme.secondaryContainer,
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.people,
+                          size: 48,
+                          color: colorScheme.primary,
+                        ),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Welcome to BlessedFam',
+                          style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Track attendance, celebrate consistency, and grow together.',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Track attendance, celebrate consistency, and grow together.',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 32),
                   TextFormField(
                     controller: _email,
                     keyboardType: TextInputType.emailAddress,
@@ -179,45 +207,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       child: const Text('Forgot password?'),
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 16),
                   SizedBox(
                     width: double.infinity,
-                    child: ElevatedButton.icon(
+                    child: FilledButton.icon(
                       onPressed: _isLoading ? null : _signIn,
                       icon: _isLoading
                           ? const SizedBox(
-                              height: 18,
-                              width: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
                             )
-                          : const Icon(Icons.login),
-                      label: const Text('Sign in'),
+                          : const Icon(Icons.login, size: 20),
+                      label: Text(_isLoading ? 'Signing in...' : 'Sign in', style: const TextStyle(fontSize: 16)),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
                     ),
                   ),
-                  if (_error != null)
-                    Container(
-                      margin: const EdgeInsets.only(top: 16),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.red.shade200),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.error_outline,
-                              color: Colors.red.shade700, size: 20),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              _error!,
-                              style: TextStyle(
-                                  color: Colors.red.shade700, fontSize: 13),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                 ],
               ),
             ),

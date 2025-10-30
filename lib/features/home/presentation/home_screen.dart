@@ -6,6 +6,9 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/providers/auth_providers.dart';
 import '../../../core/providers/supabase_provider.dart';
+import '../../../core/providers/connectivity_provider.dart';
+import '../../../core/utils/connectivity_utils.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../repositories/performance_repository.dart';
 import '../../../models/performance.dart';
 import '../../../repositories/user_repository.dart';
@@ -28,8 +31,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     ref.watch(currentSessionProvider);
     ref.watch(currentUserProfileProvider);
+    final connectivityStatus = ref.watch(connectivityStatusProvider);
+    final isOffline = connectivityStatus.value == false;
+
     final tabs = [
-      const _HomeTab(),
+      _HomeTab(onSwitchToLeaderboard: () => setState(() => _index = 1)),
       const _LeaderboardTab(),
       const _AnnouncementsTab(),
       const _ProfileTab(),
@@ -39,6 +45,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       appBar: AppBar(
         title: const Text('BlessedFam'),
         actions: [
+          // Theme toggle button
+          IconButton(
+            tooltip: 'Toggle theme',
+            onPressed: () {
+              ref.read(themeModeProvider.notifier).toggleTheme();
+            },
+            icon: Icon(
+              ref.watch(themeModeProvider) == ThemeMode.light
+                  ? Icons.dark_mode
+                  : Icons.light_mode,
+            ),
+          ),
+          // Sign out button
           IconButton(
             tooltip: 'Sign out',
             onPressed: () async {
@@ -69,9 +88,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ],
       ),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 250),
-        child: tabs[_index],
+      body: Column(
+        children: [
+          OfflineIndicator(isOffline: isOffline),
+          Expanded(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              child: tabs[_index],
+            ),
+          ),
+        ],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
@@ -104,7 +130,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 }
 
 class _HomeTab extends ConsumerWidget {
-  const _HomeTab();
+  const _HomeTab({required this.onSwitchToLeaderboard});
+
+  final VoidCallback onSwitchToLeaderboard;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isAdminAsync = ref.watch(isAdminProvider);
@@ -174,9 +203,10 @@ class _HomeTab extends ConsumerWidget {
         const SizedBox(height: 12),
         _HeroCard(
           title: 'Weekly Winner',
-          subtitle: 'Celebrate the most consistent saint this week.',
+          subtitle:
+              'Celebrate the most consistent saint this week. Tap to view rankings.',
           icon: Icons.celebration,
-          onTap: () => context.push('/leaderboard'),
+          onTap: onSwitchToLeaderboard,
         ),
       ],
     );
@@ -251,9 +281,8 @@ class _LeaderboardTabState extends ConsumerState<_LeaderboardTab>
         }
       }
       // Merge with all users to include zero-point users
-      final List<UserProfile> allUsers = await ref
-          .read(userRepositoryProvider)
-          .listAllUsers();
+      final List<UserProfile> allUsers =
+          await ref.read(userRepositoryProvider).listAllUsers();
       final Map<String, UserProfile> byId = {for (var u in allUsers) u.id: u};
       final Set<String> scoredIds = perf.map((e) => e.userId).toSet();
       final List<PerformanceWeekly> merged = [
@@ -283,11 +312,9 @@ class _LeaderboardTabState extends ConsumerState<_LeaderboardTab>
             child: Text('Failed to load leaderboard: ${snapshot.error}'),
           );
         }
-        final data =
-            snapshot.data?['perf'] as List<PerformanceWeekly>? ??
+        final data = snapshot.data?['perf'] as List<PerformanceWeekly>? ??
             <PerformanceWeekly>[];
-        final users =
-            snapshot.data?['users'] as Map<String, UserProfile>? ??
+        final users = snapshot.data?['users'] as Map<String, UserProfile>? ??
             <String, UserProfile>{};
         if (data.isEmpty) {
           return const Center(
@@ -335,31 +362,41 @@ class _LeaderboardTabState extends ConsumerState<_LeaderboardTab>
                         ),
                         child: Column(
                           children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.emoji_events,
-                                  size: 40,
-                                  color: Colors.amber.shade900,
-                                ),
-                                const SizedBox(width: 12),
-                                Text(
-                                  'WEEKLY CHAMPION',
-                                  style: TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.w900,
-                                    color: Colors.amber.shade900,
-                                    letterSpacing: 1.5,
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(
+                                    Icons.emoji_events,
+                                    size: 40,
+                                    color: Colors.white,
                                   ),
-                                ),
-                                const SizedBox(width: 12),
-                                Icon(
-                                  Icons.emoji_events,
-                                  size: 40,
-                                  color: Colors.amber.shade900,
-                                ),
-                              ],
+                                  const SizedBox(width: 12),
+                                  ConstrainedBox(
+                                    constraints:
+                                        const BoxConstraints(maxWidth: 220),
+                                    child: const Text(
+                                      'WEEKLY CHAMPION',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.w900,
+                                        color: Colors.white,
+                                        letterSpacing: 1.5,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  const Icon(
+                                    Icons.emoji_events,
+                                    size: 40,
+                                    color: Colors.white,
+                                  ),
+                                ],
+                              ),
                             ),
                             const SizedBox(height: 16),
                             if (winnerProfile?.profilePictureUrl != null)
@@ -394,23 +431,23 @@ class _LeaderboardTabState extends ConsumerState<_LeaderboardTab>
                                   ),
                                   color: Colors.amber.shade100,
                                 ),
-                                child: CircleAvatar(
+                                child: const CircleAvatar(
                                   radius: 50,
                                   backgroundColor: Colors.transparent,
                                   child: Icon(
                                     Icons.person,
                                     size: 50,
-                                    color: Colors.amber.shade900,
+                                    color: Colors.white,
                                   ),
                                 ),
                               ),
                             const SizedBox(height: 16),
                             Text(
                               winnerName,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 28,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.amber.shade900,
+                                color: Colors.white,
                               ),
                               textAlign: TextAlign.center,
                             ),
@@ -434,12 +471,12 @@ class _LeaderboardTabState extends ConsumerState<_LeaderboardTab>
                               ),
                             ),
                             const SizedBox(height: 12),
-                            Text(
+                            const Text(
                               '🎉 Most Consistent This Week! 🎉',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
-                                color: Colors.amber.shade900,
+                                color: Colors.white70,
                               ),
                             ),
                           ],
@@ -486,25 +523,24 @@ class _LeaderboardTabState extends ConsumerState<_LeaderboardTab>
                     color: isWinner
                         ? Colors.amber.shade50
                         : isTopThree
-                        ? colorScheme.primaryContainer.withOpacity(0.3)
-                        : null,
+                            ? colorScheme.primaryContainer.withOpacity(0.3)
+                            : null,
                     borderRadius: BorderRadius.circular(12),
                     border: isWinner
                         ? Border.all(color: Colors.amber, width: 2)
                         : isTopThree
-                        ? Border.all(
-                            color: colorScheme.primary.withOpacity(0.3),
-                          )
-                        : null,
+                            ? Border.all(
+                                color: colorScheme.primary.withOpacity(0.3),
+                              )
+                            : null,
                   ),
                   child: ListTile(
                     leading: Stack(
                       children: [
                         avatar == null || avatar.isEmpty
                             ? CircleAvatar(
-                                backgroundColor: isTopThree
-                                    ? _getMedalColor(rank)
-                                    : null,
+                                backgroundColor:
+                                    isTopThree ? _getMedalColor(rank) : null,
                                 child: isTopThree
                                     ? Icon(
                                         _getMedalIcon(rank),
@@ -546,11 +582,21 @@ class _LeaderboardTabState extends ConsumerState<_LeaderboardTab>
                         fontWeight: isWinner
                             ? FontWeight.w900
                             : isTopThree
-                            ? FontWeight.w700
-                            : FontWeight.normal,
+                                ? FontWeight.w700
+                                : FontWeight.normal,
+                        color: (isWinner || isTopThree)
+                            ? Colors.black87
+                            : colorScheme.onSurface,
                       ),
                     ),
-                    subtitle: Text('Total score: ${p.totalScore}'),
+                    subtitle: Text(
+                      'Total score: ${p.totalScore}',
+                      style: TextStyle(
+                        color: (isWinner || isTopThree)
+                            ? Colors.black54
+                            : colorScheme.onSurface.withOpacity(0.7),
+                      ),
+                    ),
                     trailing: isWinner
                         ? const Icon(
                             Icons.emoji_events,
@@ -558,20 +604,21 @@ class _LeaderboardTabState extends ConsumerState<_LeaderboardTab>
                             size: 32,
                           )
                         : isTopThree
-                        ? Chip(
-                            label: Text(
-                              '#$rank',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
+                            ? Chip(
+                                label: Text(
+                                  '#$rank',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                backgroundColor: _getMedalColor(rank),
+                                labelStyle:
+                                    const TextStyle(color: Colors.white),
+                              )
+                            : Text(
+                                '#$rank',
+                                style: Theme.of(context).textTheme.bodyLarge,
                               ),
-                            ),
-                            backgroundColor: _getMedalColor(rank),
-                            labelStyle: const TextStyle(color: Colors.white),
-                          )
-                        : Text(
-                            '#$rank',
-                            style: Theme.of(context).textTheme.bodyLarge,
-                          ),
                   ),
                 );
               }, childCount: data.length),
@@ -726,6 +773,61 @@ class _ProfileTab extends ConsumerWidget {
                   label: const Text('Edit profile'),
                 ),
               ),
+              const SizedBox(height: 24),
+              // Theme Settings Card
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.palette_outlined,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Appearance',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Consumer(
+                        builder: (context, ref, _) {
+                          final themeMode = ref.watch(themeModeProvider);
+                          final isDark = themeMode == ThemeMode.dark;
+
+                          return SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('Dark Mode'),
+                            subtitle: Text(isDark
+                                ? 'Dark theme enabled'
+                                : 'Light theme enabled'),
+                            secondary: Icon(
+                              isDark ? Icons.dark_mode : Icons.light_mode,
+                              color: Theme.of(context).colorScheme.secondary,
+                            ),
+                            value: isDark,
+                            onChanged: (value) {
+                              ref
+                                  .read(themeModeProvider.notifier)
+                                  .toggleTheme();
+                            },
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ],
           );
         },
@@ -836,9 +938,7 @@ class _EditProfileSheetState extends ConsumerState<_EditProfileSheet> {
       final client = ref.read(supabaseProvider);
       final uid = client.auth.currentUser!.id;
       final path = 'avatars/$uid.jpg';
-      await client.storage
-          .from('avatars')
-          .uploadBinary(
+      await client.storage.from('avatars').uploadBinary(
             path,
             await img.readAsBytes(),
             fileOptions: const FileOptions(
@@ -849,8 +949,7 @@ class _EditProfileSheetState extends ConsumerState<_EditProfileSheet> {
       final url = client.storage.from('avatars').getPublicUrl(path);
       await client
           .from('users')
-          .update({'profile_picture_url': url})
-          .eq('id', uid);
+          .update({'profile_picture_url': url}).eq('id', uid);
 
       // Invalidate profile to refresh UI
       ref.invalidate(currentUserProfileProvider);
