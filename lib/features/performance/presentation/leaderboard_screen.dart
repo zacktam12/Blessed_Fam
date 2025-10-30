@@ -6,12 +6,14 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../../repositories/performance_repository.dart';
 import '../../../repositories/user_repository.dart';
 import '../../../models/user_profile.dart';
+import '../../../models/performance.dart';
 
 class LeaderboardScreen extends ConsumerWidget {
   const LeaderboardScreen({super.key});
 
   DateTime _weekStart(DateTime d) {
-    final monday = d.subtract(Duration(days: (d.weekday - DateTime.monday) % 7));
+    final monday =
+        d.subtract(Duration(days: (d.weekday - DateTime.monday) % 7));
     return DateTime(monday.year, monday.month, monday.day);
   }
 
@@ -23,20 +25,40 @@ class LeaderboardScreen extends ConsumerWidget {
       appBar: AppBar(title: Text('Weekly Leaderboard · $label')),
       body: FutureBuilder<Map<String, dynamic>>(
         future: () async {
-          var data = await ref.read(performanceRepositoryProvider).fetchWeek(weekStart: week);
+          var data = await ref
+              .read(performanceRepositoryProvider)
+              .fetchWeek(weekStart: week);
           if (data.isEmpty) {
             try {
-              await ref.read(performanceRepositoryProvider).computeWeek(weekStart: week);
-              data = await ref.read(performanceRepositoryProvider).fetchWeek(weekStart: week);
+              await ref
+                  .read(performanceRepositoryProvider)
+                  .computeWeek(weekStart: week);
+              data = await ref
+                  .read(performanceRepositoryProvider)
+                  .fetchWeek(weekStart: week);
             } catch (_) {
               // swallow; UI will show error/empty
             }
           }
-          // Fetch user profiles
-          final ids = data.map((e) => e.userId).toSet().toList();
-          final List<UserProfile> users = ids.isEmpty ? <UserProfile>[] : await ref.read(userRepositoryProvider).fetchUsersByIds(ids);
-          final Map<String, UserProfile> byId = {for (var u in users) u.id: u};
-          return {'perf': data, 'users': byId};
+          // Merge with all users to include zero-point users
+          final List<UserProfile> allUsers = await ref.read(userRepositoryProvider).listAllUsers();
+          final Map<String, UserProfile> byId = {for (var u in allUsers) u.id: u};
+          final Set<String> scoredIds = data.map((e) => e.userId).toSet();
+          final List<PerformanceWeekly> merged = [
+            ...data,
+            for (final u in allUsers)
+              if (!scoredIds.contains(u.id))
+                PerformanceWeekly(
+                  id: 0,
+                  userId: u.id,
+                  weekStartDate: week,
+                  totalScore: 0,
+                  rank: null,
+                ),
+          ];
+          // Sort highest first
+          merged.sort((a, b) => b.totalScore.compareTo(a.totalScore));
+          return {'perf': merged, 'users': byId};
         }(),
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
@@ -46,9 +68,11 @@ class LeaderboardScreen extends ConsumerWidget {
             return Center(child: Text('Error: ${snapshot.error}'));
           }
           final data = snapshot.data?['perf'] as List? ?? [];
-          final users = snapshot.data?['users'] as Map<String, UserProfile>? ?? {};
+          final users =
+              snapshot.data?['users'] as Map<String, UserProfile>? ?? {};
           if (data.isEmpty) {
-            return const _EmptyState(message: 'No scores yet. Encourage the saints!');
+            return const _EmptyState(
+                message: 'No scores yet. Encourage the saints!');
           }
           return ListView.separated(
             padding: const EdgeInsets.all(12),
@@ -56,12 +80,15 @@ class LeaderboardScreen extends ConsumerWidget {
               final p = data[i];
               final rank = p.rank ?? i + 1;
               final profile = users[p.userId];
-              final displayName = (profile?.name?.isNotEmpty ?? false) ? profile!.name! : (profile?.email ?? p.userId.substring(0, 6));
+              final displayName = (profile?.name?.isNotEmpty ?? false)
+                  ? profile!.name!
+                  : (profile?.email ?? p.userId.substring(0, 6));
               final avatar = profile?.profilePictureUrl;
               return ListTile(
                 leading: avatar == null || avatar.isEmpty
                     ? CircleAvatar(child: Text('$rank'))
-                    : CircleAvatar(backgroundImage: CachedNetworkImageProvider(avatar)),
+                    : CircleAvatar(
+                        backgroundImage: CachedNetworkImageProvider(avatar)),
                 title: Text(displayName),
                 subtitle: Text('Total score: ${p.totalScore}'),
               );
@@ -92,4 +119,3 @@ class _EmptyState extends StatelessWidget {
     );
   }
 }
-
