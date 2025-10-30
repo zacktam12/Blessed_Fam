@@ -64,9 +64,12 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen> {
                   padding: const EdgeInsets.all(12),
                   itemBuilder: (c, i) {
                     final s = sessions[i];
+                    final startTimeStr = s.startTime != null 
+                        ? ' • ${s.startTime!.format(context)}'
+                        : '';
                     return ListTile(
                       title: Text(s.name),
-                      subtitle: Text('Weight ${s.weight} • ${s.trackTime ? 'Time-tracked' : 'Attendance only'}'),
+                      subtitle: Text('Weight ${s.weight} • ${s.trackTime ? 'Time-tracked' : 'Attendance only'}$startTimeStr'),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () {
                         Navigator.of(context).push(
@@ -75,6 +78,7 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen> {
                               sessionId: s.id,
                               sessionName: s.name,
                               trackTime: s.trackTime,
+                              initialDate: _date,
                             ),
                           ),
                         );
