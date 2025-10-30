@@ -10,7 +10,7 @@ class BlessedFamApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(appRouterProvider);
-    final theme = ref.watch(appThemeProvider);
+    final themeMode = ref.watch(themeModeProvider);
 
     // Central auth listener: when the global auth notifier changes, drive
     // top-level navigation here so auth state changes are handled in one
@@ -35,8 +35,9 @@ class BlessedFamApp extends ConsumerWidget {
 
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
-      theme: theme,
+      theme: AppTheme.light,
       darkTheme: AppTheme.dark,
+      themeMode: themeMode,
       routerConfig: router,
     );
   }
