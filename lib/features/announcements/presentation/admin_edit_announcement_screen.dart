@@ -56,7 +56,7 @@ class _AdminEditAnnouncementScreenState
           );
       if (mounted) {
         // Invalidate the announcements list to refresh
-        ref.invalidate(announcementsListProvider);
+        ref.invalidate(announcementsListProvider(20));
         showTopSuccess(context, 'Announcement updated');
         Navigator.pop(context, true); // Return true to indicate success
       }
@@ -102,7 +102,7 @@ class _AdminEditAnnouncementScreenState
           .deleteAnnouncement(id: widget.announcement.id);
       if (mounted) {
         // Invalidate the announcements list to refresh
-        ref.invalidate(announcementsListProvider);
+        ref.invalidate(announcementsListProvider(20));
         showTopSuccess(context, 'Announcement deleted');
         Navigator.pop(context, true); // Return true to indicate success
       }

@@ -39,7 +39,7 @@ class AnnouncementsScreen extends ConsumerWidget {
                           ),
                         );
                         if (result == true) {
-                          ref2.invalidate(announcementsListProvider);
+                          ref2.invalidate(announcementsListProvider(20));
                         }
                       },
                     );

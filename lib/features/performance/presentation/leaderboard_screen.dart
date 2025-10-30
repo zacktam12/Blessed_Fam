@@ -12,8 +12,9 @@ class LeaderboardScreen extends ConsumerWidget {
   const LeaderboardScreen({super.key});
 
   DateTime _weekStart(DateTime d) {
-    final monday =
-        d.subtract(Duration(days: (d.weekday - DateTime.monday) % 7));
+    final monday = d.subtract(
+      Duration(days: (d.weekday - DateTime.monday) % 7),
+    );
     return DateTime(monday.year, monday.month, monday.day);
   }
 
@@ -41,8 +42,12 @@ class LeaderboardScreen extends ConsumerWidget {
             }
           }
           // Merge with all users to include zero-point users
-          final List<UserProfile> allUsers = await ref.read(userRepositoryProvider).listAllUsers();
-          final Map<String, UserProfile> byId = {for (var u in allUsers) u.id: u};
+          final List<UserProfile> allUsers = await ref
+              .read(userRepositoryProvider)
+              .listAllUsers();
+          final Map<String, UserProfile> byId = {
+            for (var u in allUsers) u.id: u,
+          };
           final Set<String> scoredIds = data.map((e) => e.userId).toSet();
           final List<PerformanceWeekly> merged = [
             ...data,
@@ -53,7 +58,6 @@ class LeaderboardScreen extends ConsumerWidget {
                   userId: u.id,
                   weekStartDate: week,
                   totalScore: 0,
-                  rank: null,
                 ),
           ];
           // Sort highest first
@@ -72,7 +76,8 @@ class LeaderboardScreen extends ConsumerWidget {
               snapshot.data?['users'] as Map<String, UserProfile>? ?? {};
           if (data.isEmpty) {
             return const _EmptyState(
-                message: 'No scores yet. Encourage the saints!');
+              message: 'No scores yet. Encourage the saints!',
+            );
           }
           return ListView.separated(
             padding: const EdgeInsets.all(12),
@@ -88,7 +93,8 @@ class LeaderboardScreen extends ConsumerWidget {
                 leading: avatar == null || avatar.isEmpty
                     ? CircleAvatar(child: Text('$rank'))
                     : CircleAvatar(
-                        backgroundImage: CachedNetworkImageProvider(avatar)),
+                        backgroundImage: CachedNetworkImageProvider(avatar),
+                      ),
                 title: Text(displayName),
                 subtitle: Text('Total score: ${p.totalScore}'),
               );

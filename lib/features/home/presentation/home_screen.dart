@@ -66,7 +66,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               }
             },
             icon: const Icon(Icons.logout),
-          )
+          ),
         ],
       ),
       body: AnimatedSwitcher(
@@ -78,21 +78,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         onDestinationSelected: (i) => setState(() => _index = i),
         destinations: const [
           NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home),
-              label: 'Home'),
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home),
+            label: 'Home',
+          ),
           NavigationDestination(
-              icon: Icon(Icons.emoji_events_outlined),
-              selectedIcon: Icon(Icons.emoji_events),
-              label: 'Ranks'),
+            icon: Icon(Icons.emoji_events_outlined),
+            selectedIcon: Icon(Icons.emoji_events),
+            label: 'Ranks',
+          ),
           NavigationDestination(
-              icon: Icon(Icons.menu_book_outlined),
-              selectedIcon: Icon(Icons.menu_book),
-              label: 'Word'),
+            icon: Icon(Icons.menu_book_outlined),
+            selectedIcon: Icon(Icons.menu_book),
+            label: 'Word',
+          ),
           NavigationDestination(
-              icon: Icon(Icons.person_outline),
-              selectedIcon: Icon(Icons.person),
-              label: 'Profile'),
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
+            label: 'Profile',
+          ),
         ],
       ),
     );
@@ -216,8 +220,9 @@ class _LeaderboardTabState extends ConsumerState<_LeaderboardTab>
   }
 
   DateTime _weekStart(DateTime d) {
-    final monday =
-        d.subtract(Duration(days: (d.weekday - DateTime.monday) % 7));
+    final monday = d.subtract(
+      Duration(days: (d.weekday - DateTime.monday) % 7),
+    );
     return DateTime(monday.year, monday.month, monday.day);
   }
 
@@ -246,7 +251,9 @@ class _LeaderboardTabState extends ConsumerState<_LeaderboardTab>
         }
       }
       // Merge with all users to include zero-point users
-      final List<UserProfile> allUsers = await ref.read(userRepositoryProvider).listAllUsers();
+      final List<UserProfile> allUsers = await ref
+          .read(userRepositoryProvider)
+          .listAllUsers();
       final Map<String, UserProfile> byId = {for (var u in allUsers) u.id: u};
       final Set<String> scoredIds = perf.map((e) => e.userId).toSet();
       final List<PerformanceWeekly> merged = [
@@ -258,7 +265,6 @@ class _LeaderboardTabState extends ConsumerState<_LeaderboardTab>
               userId: u.id,
               weekStartDate: week,
               totalScore: 0,
-              rank: null,
             ),
       ];
       // Sort highest first
@@ -274,15 +280,19 @@ class _LeaderboardTabState extends ConsumerState<_LeaderboardTab>
         }
         if (snapshot.hasError) {
           return Center(
-              child: Text('Failed to load leaderboard: ${snapshot.error}'));
+            child: Text('Failed to load leaderboard: ${snapshot.error}'),
+          );
         }
-        final data = snapshot.data?['perf'] as List<PerformanceWeekly>? ??
+        final data =
+            snapshot.data?['perf'] as List<PerformanceWeekly>? ??
             <PerformanceWeekly>[];
-        final users = snapshot.data?['users'] as Map<String, UserProfile>? ??
+        final users =
+            snapshot.data?['users'] as Map<String, UserProfile>? ??
             <String, UserProfile>{};
         if (data.isEmpty) {
           return const Center(
-              child: Text('No scores yet. Encourage the saints!'));
+            child: Text('No scores yet. Encourage the saints!'),
+          );
         }
 
         // Get winner - data is sorted by total_score DESC, so first is highest
@@ -328,8 +338,11 @@ class _LeaderboardTabState extends ConsumerState<_LeaderboardTab>
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.emoji_events,
-                                    size: 40, color: Colors.amber.shade900),
+                                Icon(
+                                  Icons.emoji_events,
+                                  size: 40,
+                                  color: Colors.amber.shade900,
+                                ),
                                 const SizedBox(width: 12),
                                 Text(
                                   'WEEKLY CHAMPION',
@@ -341,8 +354,11 @@ class _LeaderboardTabState extends ConsumerState<_LeaderboardTab>
                                   ),
                                 ),
                                 const SizedBox(width: 12),
-                                Icon(Icons.emoji_events,
-                                    size: 40, color: Colors.amber.shade900),
+                                Icon(
+                                  Icons.emoji_events,
+                                  size: 40,
+                                  color: Colors.amber.shade900,
+                                ),
                               ],
                             ),
                             const SizedBox(height: 16),
@@ -351,7 +367,9 @@ class _LeaderboardTabState extends ConsumerState<_LeaderboardTab>
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   border: Border.all(
-                                      color: Colors.amber.shade900, width: 4),
+                                    color: Colors.amber.shade900,
+                                    width: 4,
+                                  ),
                                   boxShadow: [
                                     BoxShadow(
                                       color: Colors.black.withOpacity(0.3),
@@ -362,7 +380,8 @@ class _LeaderboardTabState extends ConsumerState<_LeaderboardTab>
                                 child: CircleAvatar(
                                   radius: 50,
                                   backgroundImage: CachedNetworkImageProvider(
-                                      winnerProfile!.profilePictureUrl!),
+                                    winnerProfile!.profilePictureUrl!,
+                                  ),
                                 ),
                               )
                             else
@@ -370,14 +389,19 @@ class _LeaderboardTabState extends ConsumerState<_LeaderboardTab>
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   border: Border.all(
-                                      color: Colors.amber.shade900, width: 4),
+                                    color: Colors.amber.shade900,
+                                    width: 4,
+                                  ),
                                   color: Colors.amber.shade100,
                                 ),
                                 child: CircleAvatar(
                                   radius: 50,
                                   backgroundColor: Colors.transparent,
-                                  child: Icon(Icons.person,
-                                      size: 50, color: Colors.amber.shade900),
+                                  child: Icon(
+                                    Icons.person,
+                                    size: 50,
+                                    color: Colors.amber.shade900,
+                                  ),
                                 ),
                               ),
                             const SizedBox(height: 16),
@@ -393,7 +417,9 @@ class _LeaderboardTabState extends ConsumerState<_LeaderboardTab>
                             const SizedBox(height: 8),
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 8),
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.amber.shade900,
                                 borderRadius: BorderRadius.circular(20),
@@ -431,107 +457,124 @@ class _LeaderboardTabState extends ConsumerState<_LeaderboardTab>
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                 child: Text(
                   'Full Rankings',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                 ),
               ),
             ),
 
             // Rankings List
             SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, i) {
-                  final PerformanceWeekly p = data[i];
-                  final rank = p.rank ?? i + 1;
-                  final profile = users[p.userId];
-                  final displayName = (profile?.name?.isNotEmpty ?? false)
-                      ? profile!.name!
-                      : (profile?.email ?? p.userId.substring(0, 6));
-                  final avatar = profile?.profilePictureUrl;
-                  final isWinner = rank == 1;
-                  final isTopThree = rank <= 3;
+              delegate: SliverChildBuilderDelegate((context, i) {
+                final PerformanceWeekly p = data[i];
+                final rank = p.rank ?? i + 1;
+                final profile = users[p.userId];
+                final displayName = (profile?.name?.isNotEmpty ?? false)
+                    ? profile!.name!
+                    : (profile?.email ?? p.userId.substring(0, 6));
+                final avatar = profile?.profilePictureUrl;
+                final isWinner = rank == 1;
+                final isTopThree = rank <= 3;
 
-                  return Container(
-                    margin:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: isWinner
-                          ? Colors.amber.shade50
-                          : isTopThree
-                              ? colorScheme.primaryContainer.withOpacity(0.3)
-                              : null,
-                      borderRadius: BorderRadius.circular(12),
-                      border: isWinner
-                          ? Border.all(color: Colors.amber, width: 2)
-                          : isTopThree
-                              ? Border.all(
-                                  color: colorScheme.primary.withOpacity(0.3))
-                              : null,
-                    ),
-                    child: ListTile(
-                      leading: Stack(
-                        children: [
-                          avatar == null || avatar.isEmpty
-                              ? CircleAvatar(
-                                  backgroundColor:
-                                      isTopThree ? _getMedalColor(rank) : null,
-                                  child: isTopThree
-                                      ? Icon(_getMedalIcon(rank),
-                                          color: Colors.white)
-                                      : Text('$rank'),
-                                )
-                              : CircleAvatar(
-                                  backgroundImage:
-                                      CachedNetworkImageProvider(avatar)),
-                          if (isTopThree)
-                            Positioned(
-                              right: -4,
-                              bottom: -4,
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(
-                                  color: _getMedalColor(rank),
-                                  shape: BoxShape.circle,
-                                  border:
-                                      Border.all(color: Colors.white, width: 2),
+                return Container(
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isWinner
+                        ? Colors.amber.shade50
+                        : isTopThree
+                        ? colorScheme.primaryContainer.withOpacity(0.3)
+                        : null,
+                    borderRadius: BorderRadius.circular(12),
+                    border: isWinner
+                        ? Border.all(color: Colors.amber, width: 2)
+                        : isTopThree
+                        ? Border.all(
+                            color: colorScheme.primary.withOpacity(0.3),
+                          )
+                        : null,
+                  ),
+                  child: ListTile(
+                    leading: Stack(
+                      children: [
+                        avatar == null || avatar.isEmpty
+                            ? CircleAvatar(
+                                backgroundColor: isTopThree
+                                    ? _getMedalColor(rank)
+                                    : null,
+                                child: isTopThree
+                                    ? Icon(
+                                        _getMedalIcon(rank),
+                                        color: Colors.white,
+                                      )
+                                    : Text('$rank'),
+                              )
+                            : CircleAvatar(
+                                backgroundImage: CachedNetworkImageProvider(
+                                  avatar,
                                 ),
-                                child: Icon(_getMedalIcon(rank),
-                                    size: 16, color: Colors.white),
+                              ),
+                        if (isTopThree)
+                          Positioned(
+                            right: -4,
+                            bottom: -4,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: _getMedalColor(rank),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 2,
+                                ),
+                              ),
+                              child: Icon(
+                                _getMedalIcon(rank),
+                                size: 16,
+                                color: Colors.white,
                               ),
                             ),
-                        ],
-                      ),
-                      title: Text(
-                        displayName,
-                        style: TextStyle(
-                          fontWeight: isWinner
-                              ? FontWeight.w900
-                              : isTopThree
-                                  ? FontWeight.w700
-                                  : FontWeight.normal,
-                        ),
-                      ),
-                      subtitle: Text('Total score: ${p.totalScore}'),
-                      trailing: isWinner
-                          ? const Icon(Icons.emoji_events,
-                              color: Colors.amber, size: 32)
-                          : isTopThree
-                              ? Chip(
-                                  label: Text('#$rank',
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.bold)),
-                                  backgroundColor: _getMedalColor(rank),
-                                  labelStyle:
-                                      const TextStyle(color: Colors.white),
-                                )
-                              : Text('#$rank',
-                                  style: Theme.of(context).textTheme.bodyLarge),
+                          ),
+                      ],
                     ),
-                  );
-                },
-                childCount: data.length,
-              ),
+                    title: Text(
+                      displayName,
+                      style: TextStyle(
+                        fontWeight: isWinner
+                            ? FontWeight.w900
+                            : isTopThree
+                            ? FontWeight.w700
+                            : FontWeight.normal,
+                      ),
+                    ),
+                    subtitle: Text('Total score: ${p.totalScore}'),
+                    trailing: isWinner
+                        ? const Icon(
+                            Icons.emoji_events,
+                            color: Colors.amber,
+                            size: 32,
+                          )
+                        : isTopThree
+                        ? Chip(
+                            label: Text(
+                              '#$rank',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            backgroundColor: _getMedalColor(rank),
+                            labelStyle: const TextStyle(color: Colors.white),
+                          )
+                        : Text(
+                            '#$rank',
+                            style: Theme.of(context).textTheme.bodyLarge,
+                          ),
+                  ),
+                );
+              }, childCount: data.length),
             ),
           ],
         );
@@ -601,12 +644,18 @@ class _AnnouncementsTab extends ConsumerWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Word of the Day',
-                        style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.w700)),
+                    const Text(
+                      'Word of the Day',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                     const SizedBox(height: 12),
-                    Text(verses[idx],
-                        style: Theme.of(context).textTheme.bodyLarge),
+                    Text(
+                      verses[idx],
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
                   ],
                 ),
               ),
@@ -625,9 +674,13 @@ class _AnnouncementsTab extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(title,
-                      style: const TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.w700)),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   Text(message, style: Theme.of(context).textTheme.bodyLarge),
                 ],
@@ -726,12 +779,18 @@ class _HeroCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title,
-                        style: const TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w700)),
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                     const SizedBox(height: 6),
-                    Text(subtitle,
-                        style: Theme.of(context).textTheme.bodyMedium),
+                    Text(
+                      subtitle,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
                   ],
                 ),
               ),
@@ -767,23 +826,31 @@ class _EditProfileSheetState extends ConsumerState<_EditProfileSheet> {
     // ignore: depend_on_referenced_packages
     final picker = await Future.sync(() => ImagePicker());
     final img = await picker.pickImage(
-        source: ImageSource.gallery, maxWidth: 1024, imageQuality: 82);
+      source: ImageSource.gallery,
+      maxWidth: 1024,
+      imageQuality: 82,
+    );
     if (img == null) return;
     setState(() => _saving = true);
     try {
       final client = ref.read(supabaseProvider);
       final uid = client.auth.currentUser!.id;
       final path = 'avatars/$uid.jpg';
-      await client.storage.from('avatars').uploadBinary(
+      await client.storage
+          .from('avatars')
+          .uploadBinary(
             path,
             await img.readAsBytes(),
-            fileOptions:
-                const FileOptions(upsert: true, contentType: 'image/jpeg'),
+            fileOptions: const FileOptions(
+              upsert: true,
+              contentType: 'image/jpeg',
+            ),
           );
       final url = client.storage.from('avatars').getPublicUrl(path);
       await client
           .from('users')
-          .update({'profile_picture_url': url}).eq('id', uid);
+          .update({'profile_picture_url': url})
+          .eq('id', uid);
 
       // Invalidate profile to refresh UI
       ref.invalidate(currentUserProfileProvider);
@@ -851,8 +918,9 @@ class _EditProfileSheetState extends ConsumerState<_EditProfileSheet> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding:
-          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: SafeArea(
         top: false,
         child: Padding(
@@ -882,7 +950,8 @@ class _EditProfileSheetState extends ConsumerState<_EditProfileSheet> {
                           ? const SizedBox(
                               height: 16,
                               width: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2))
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
                           : const Icon(Icons.save),
                       label: const Text('Save'),
                     ),
@@ -906,7 +975,9 @@ class _AvatarImage extends ConsumerWidget {
     final url = profile?.profilePictureUrl;
     if (url == null || url.isEmpty) {
       return CircleAvatar(
-          radius: radius, child: const Icon(Icons.person, size: 36));
+        radius: radius,
+        child: const Icon(Icons.person, size: 36),
+      );
     }
     return CircleAvatar(
       radius: radius,

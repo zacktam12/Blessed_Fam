@@ -50,6 +50,8 @@ class _AdminCreateAnnouncementScreenState extends ConsumerState<AdminCreateAnnou
             notify: _notify,
           );
       if (mounted) {
+        // Refresh announcements list on return
+        ref.invalidate(announcementsListProvider(20));
         showTopSuccess(context, 'Announcement published successfully');
         Navigator.pop(context);
       }
