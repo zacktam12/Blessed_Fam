@@ -7,7 +7,6 @@ import '../features/auth/presentation/forgot_password_screen.dart';
 import '../features/home/presentation/home_screen.dart';
 import '../features/attendance/presentation/admin_attendance_screen.dart';
 import '../features/attendance/presentation/my_attendance_screen.dart';
-import '../features/performance/presentation/leaderboard_screen.dart';
 import '../features/announcements/presentation/announcements_screen.dart';
 import '../features/announcements/presentation/admin_create_announcement_screen.dart';
 import '../features/admin/presentation/admin_create_user_screen.dart';
@@ -31,8 +30,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
           path: '/my-attendance',
           builder: (c, s) => const MyAttendanceScreen()),
-      GoRoute(
-          path: '/leaderboard', builder: (c, s) => const LeaderboardScreen()),
       GoRoute(
           path: '/announcements',
           builder: (c, s) => const AnnouncementsScreen()),

@@ -25,13 +25,18 @@ void _showOverlay(BuildContext context, {required String message, required Color
 }
 
 void showTopError(BuildContext context, String message) {
-  final color = Theme.of(context).colorScheme.error;
+  final color = Colors.red.shade700;
   _showOverlay(context, message: message, backgroundColor: color, icon: Icons.error_outline);
 }
 
 void showTopSuccess(BuildContext context, String message) {
   final color = Colors.green.shade700;
   _showOverlay(context, message: message, backgroundColor: color, icon: Icons.check_circle_outline);
+}
+
+void showTopInfo(BuildContext context, String message) {
+  final color = Colors.blue.shade700;
+  _showOverlay(context, message: message, backgroundColor: color, icon: Icons.info_outline);
 }
 
 class _TopToast extends StatefulWidget {
@@ -88,21 +93,39 @@ class _TopToastState extends State<_TopToast> with SingleTickerProviderStateMixi
           child: SlideTransition(
             position: _offset,
             child: Material(
-              elevation: 6,
-              borderRadius: BorderRadius.circular(12),
+              elevation: 8,
+              borderRadius: BorderRadius.circular(16),
               color: Colors.transparent,
+              shadowColor: Colors.black45,
               child: Container(
                 decoration: BoxDecoration(
                   color: widget.backgroundColor,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 12, offset: const Offset(0, 6))],
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.25),
+                      blurRadius: 16,
+                      offset: const Offset(0, 8),
+                      spreadRadius: 2,
+                    ),
+                  ],
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 child: Row(
                   children: [
-                    Icon(widget.icon, color: Colors.white, size: 20),
-                    const SizedBox(width: 12),
-                    Expanded(child: Text(widget.message, style: const TextStyle(color: Colors.white, fontSize: 14))),
+                    Icon(widget.icon, color: Colors.white, size: 22),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Text(
+                        widget.message,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          height: 1.3,
+                        ),
+                      ),
+                    ),
                     GestureDetector(
                       onTap: _dismiss,
                       child: const Padding(
