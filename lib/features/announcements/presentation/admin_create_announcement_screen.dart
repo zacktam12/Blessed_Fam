@@ -18,20 +18,47 @@ class _AdminCreateAnnouncementScreenState extends ConsumerState<AdminCreateAnnou
   bool _saving = false;
 
   Future<void> _save() async {
+    final title = _title.text.trim();
+    final message = _message.text.trim();
+    
+    // Validation
+    if (title.isEmpty) {
+      showTopError(context, 'Title is required');
+      return;
+    }
+    
+    if (title.length < 3) {
+      showTopError(context, 'Title must be at least 3 characters');
+      return;
+    }
+    
+    if (message.isEmpty) {
+      showTopError(context, 'Message is required');
+      return;
+    }
+    
+    if (message.length < 10) {
+      showTopError(context, 'Message must be at least 10 characters');
+      return;
+    }
+    
     setState(() => _saving = true);
     try {
       await ref.read(announcementsRepositoryProvider).createAnnouncement(
-            title: _title.text.trim(),
-            message: _message.text.trim(),
+            title: title,
+            message: message,
             notify: _notify,
           );
       if (mounted) {
-        showTopSuccess(context, 'Announcement published');
+        showTopSuccess(context, 'Announcement published successfully');
         Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
-        showTopError(context, 'Publish failed: $e');
+        final errorMsg = e.toString().contains('network')
+            ? 'Network error. Please check your connection.'
+            : 'Failed to publish announcement. Please try again.';
+        showTopError(context, errorMsg);
       }
     } finally {
       if (mounted) setState(() => _saving = false);
