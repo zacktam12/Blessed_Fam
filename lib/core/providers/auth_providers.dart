@@ -51,35 +51,45 @@ class AuthRepository {
   }
 
   Future<void> signOut() async {
-    await _client.auth.signOut();
+    try {
+      await _client.auth.signOut();
+    } catch (e) {
+      // Even if signOut fails, we want to clear local session
+      debugPrint('Sign out error: $e');
+    }
   }
 
   /// Admin-only: Create a new user account
-  /// This uses Supabase's admin API to create users without email confirmation
+  /// This calls a secure edge function that uses admin privileges
   Future<void> createUserAsAdmin({
     required String email,
     required String password,
     required String name,
     required String role,
   }) async {
-    // Create auth user
-    final response = await _client.auth.admin.createUser(
-      AdminUserAttributes(
-        email: email,
-        password: password,
-        emailConfirm: true, // Auto-confirm email
-      ),
-    );
+    try {
+      final response = await _client.functions.invoke(
+        'create_user_admin',
+        body: {
+          'email': email,
+          'password': password,
+          'name': name,
+          'role': role,
+        },
+      );
 
-    if (response.user == null) {
-      throw Exception('Failed to create user');
+      if (response.status != 200) {
+        final error = response.data?['error'] ?? 'Failed to create user';
+        throw Exception(error);
+      }
+
+      if (response.data?['success'] != true) {
+        throw Exception(response.data?['error'] ?? 'User creation failed');
+      }
+    } catch (e) {
+      debugPrint('Create user error: $e');
+      rethrow;
     }
-
-    // Update the user profile with name and role
-    await _client.from('users').update({
-      'name': name,
-      'role': role,
-    }).eq('id', response.user!.id);
   }
 }
 
