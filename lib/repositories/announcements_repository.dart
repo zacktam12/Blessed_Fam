@@ -8,6 +8,12 @@ final announcementsRepositoryProvider = Provider<AnnouncementsRepository>((ref) 
   return AnnouncementsRepository(ref);
 });
 
+// Provider to fetch latest announcements; can be invalidated to refresh the UI
+final announcementsListProvider = FutureProvider.autoDispose.family<List<Announcement>, int>((ref, limit) async {
+  final repo = ref.read(announcementsRepositoryProvider);
+  return repo.fetchLatest(limit: limit);
+});
+
 class AnnouncementsRepository {
   AnnouncementsRepository(this._ref);
   final Ref _ref;
@@ -25,13 +31,16 @@ class AnnouncementsRepository {
         .toList();
   }
 
-  Future<void> createAnnouncement({required String title, required String message, bool notify = false}) async {
+  /// Inserts a new announcement and returns the created row as [Announcement].
+  /// Also optionally sends push notifications if [notify] is true.
+  Future<Announcement> createAnnouncement({required String title, required String message, bool notify = false}) async {
     final uid = _client.auth.currentUser?.id;
-    await _client.from('announcements').insert({
+    final res = await _client.from('announcements').insert({
       'title': title,
       'message': message,
       'posted_by': uid,
-    });
+    }).select().single();
+  final created = Announcement.fromJson(res);
     if (notify) {
       // fetch tokens and invoke edge function
       final tokens = await _client.from('device_tokens').select('token');
@@ -44,6 +53,45 @@ class AnnouncementsRepository {
         });
       }
     }
+    return created;
   }
+
+  /// Updates an existing announcement.
+  /// Only admins can update announcements (enforced by RLS).
+  Future<Announcement> updateAnnouncement({
+    required int id,
+    required String title,
+    required String message,
+  }) async {
+    final res = await _client
+        .from('announcements')
+        .update({
+          'title': title,
+          'message': message,
+        })
+        .eq('id', id)
+        .select()
+        .single();
+    return Announcement.fromJson(res);
+  }
+
+  /// Deletes an announcement by ID.
+  /// Only admins can delete announcements (enforced by RLS).
+  Future<void> deleteAnnouncement({required int id}) async {
+    await _client.from('announcements').delete().eq('id', id);
+  }
+
+  /// Fetches a single announcement by ID.
+  Future<Announcement?> getAnnouncementById({required int id}) async {
+    final res = await _client
+        .from('announcements')
+        .select()
+        .eq('id', id)
+        .maybeSingle();
+    if (res == null) return null;
+    return Announcement.fromJson(res);
+  }
+
 }
+
 

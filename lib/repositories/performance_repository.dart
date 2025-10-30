@@ -21,5 +21,12 @@ class PerformanceRepository {
         .map((e) => PerformanceWeekly.fromJson(e as Map<String, dynamic>))
         .toList();
   }
+
+  Future<void> computeWeek({required DateTime weekStart}) async {
+    final isoDate = weekStart.toIso8601String().substring(0, 10);
+    await _client.rpc<void>('compute_weekly_performance', params: {
+      'p_week_start': isoDate,
+    });
+  }
 }
 
