@@ -5,7 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// Simple connectivity checker using Supabase health endpoint
 class ConnectivityChecker {
   ConnectivityChecker(this._client);
-  
+
   final SupabaseClient _client;
   bool _isOnline = true;
   final _controller = StreamController<bool>.broadcast();
@@ -16,7 +16,8 @@ class ConnectivityChecker {
 
   void startMonitoring() {
     _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 30), (_) => _checkConnection());
+    _timer =
+        Timer.periodic(const Duration(seconds: 30), (_) => _checkConnection());
     _checkConnection(); // Initial check
   }
 
@@ -49,22 +50,22 @@ class ConnectivityChecker {
 /// Offline indicator banner widget
 class OfflineIndicator extends StatelessWidget {
   const OfflineIndicator({super.key, required this.isOffline});
-  
+
   final bool isOffline;
 
   @override
   Widget build(BuildContext context) {
     if (!isOffline) return const SizedBox.shrink();
-    
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       color: Colors.orange.shade700,
-      child: Row(
+      child: const Row(
         children: [
-          const Icon(Icons.wifi_off, color: Colors.white, size: 20),
-          const SizedBox(width: 8),
-          const Expanded(
+          Icon(Icons.wifi_off, color: Colors.white, size: 20),
+          SizedBox(width: 8),
+          Expanded(
             child: Text(
               'No internet connection. Some features may be unavailable.',
               style: TextStyle(color: Colors.white, fontSize: 13),
@@ -85,21 +86,21 @@ Future<T> retryOperation<T>(
   void Function(String)? onRetry,
 }) async {
   int attempts = 0;
-  
+
   while (attempts < maxRetries) {
     try {
       return await operation();
     } catch (e) {
       attempts++;
-      
+
       if (attempts >= maxRetries) {
         rethrow;
       }
-      
+
       onRetry?.call('Retry attempt $attempts of $maxRetries...');
       await Future<void>.delayed(delay);
     }
   }
-  
+
   throw Exception('Operation failed after $maxRetries attempts');
 }
