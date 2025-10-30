@@ -27,24 +27,37 @@ BlessedFam helps the Gospel Believers Bible Study Family track weekly attendance
 - `supabase/schema.sql` – Database tables, policies, RPC `check_in`
 
 ## Setup
-1) Install Flutter and create a device/emulator.
 
-2) Create a Supabase project.
+### Quick Start
+
+1) **Install Flutter** and create a device/emulator.
+
+2) **Create a Supabase project**
    - Get your `SUPABASE_URL` and `SUPABASE_ANON_KEY` from the dashboard.
 
-3) Apply the database schema:
+3) **Apply the database schema**
    - Open the SQL editor in Supabase and run the contents of `supabase/schema.sql`.
+   - This includes RLS policies for all tables.
 
-4) Configure Dart defines for your build:
-```bash
-flutter run \
-  --dart-define=SUPABASE_URL=your_url \
-  --dart-define=SUPABASE_ANON_KEY=your_anon_key
-```
+4) **Configure environment** (required for security)
+   ```bash
+   # Run app with environment variables
+   flutter run \
+     --dart-define=SUPABASE_URL=your_url \
+     --dart-define=SUPABASE_ANON_KEY=your_anon_key
+   ```
+   
+   ⚠️ **Note**: Never commit credentials. They are now removed from defaults.
 
-5) Sign in:
-   - Create users in Supabase Auth (email/password).
-   - Make one user `role = 'admin'` in the `public.users` table for admin features.
+5) **Create initial admin user**
+   - Create a user in Supabase Auth (email/password).
+   - Update `role = 'admin'` in the `public.users` table for admin features.
+
+6) **Setup automated weekly performance** (optional)
+   - Enable pg_cron extension in Supabase
+   - Run `supabase/functions/setup_cron.sql`
+
+For detailed deployment instructions, see [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## Role-based UI
 - Admin-only features (like `Admin Attendance`) are hidden for members and guarded in navigation. Ensure the `users.role` column is set accordingly.

@@ -43,3 +43,21 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Environment variables and secrets
+.env
+.env.local
+.env.*.local
+
+# Firebase configuration files
+google-services.json
+GoogleService-Info.plist
+
+# Signing keys
+*.jks
+*.keystore
+key.properties
+android/key.properties
+
+# Supabase local
+.supabase/
