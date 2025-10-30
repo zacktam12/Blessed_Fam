@@ -51,22 +51,41 @@ class AnalyticsRepository {
 
   /// Get attendance statistics per session
   Future<List<Map<String, dynamic>>> getSessionStats() async {
-    const query = '''
-      SELECT 
-        s.id,
-        s.name,
-        s.weight,
-        COUNT(a.id) as total_records,
-        COUNT(CASE WHEN a.status = 'present' THEN 1 END) as present_count,
-        COUNT(CASE WHEN a.status = 'absent' THEN 1 END) as absent_count
-      FROM sessions s
-      LEFT JOIN attendance a ON s.id = a.session_id
-      GROUP BY s.id, s.name, s.weight
-      ORDER BY s.name
-    ''';
-
-    final response = await _client.rpc('exec_sql', params: {'query': query});
-    return List<Map<String, dynamic>>.from(response as List);
+    // Fetch all sessions
+    final sessionsResponse = await _client
+        .from('sessions')
+        .select('id, name, weight')
+        .order('name');
+    
+    final sessions = List<Map<String, dynamic>>.from(sessionsResponse as List);
+    final stats = <Map<String, dynamic>>[];
+    
+    // For each session, count attendance records
+    for (final session in sessions) {
+      final sessionId = session['id'];
+      
+      // Get all attendance records for this session
+      final attendanceResponse = await _client
+          .from('attendance')
+          .select('status')
+          .eq('session_id', sessionId);
+      
+      final records = List<Map<String, dynamic>>.from(attendanceResponse as List);
+      final totalRecords = records.length;
+      final presentCount = records.where((r) => r['status'] == 'present').length;
+      final absentCount = records.where((r) => r['status'] == 'absent').length;
+      
+      stats.add({
+        'id': sessionId,
+        'name': session['name'],
+        'weight': session['weight'],
+        'total_records': totalRecords,
+        'present_count': presentCount,
+        'absent_count': absentCount,
+      });
+    }
+    
+    return stats;
   }
 
   /// Get weekly attendance trends (last 8 weeks)
