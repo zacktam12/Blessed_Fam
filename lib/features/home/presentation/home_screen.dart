@@ -26,7 +26,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-  ref.watch(currentSessionProvider);
+    ref.watch(currentSessionProvider);
+    ref.watch(currentUserProfileProvider);
     final tabs = [
       const _HomeTab(),
       const _LeaderboardTab(),
@@ -42,6 +43,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             tooltip: 'Sign out',
             onPressed: () async {
               await ref.read(authRepositoryProvider).signOut();
+              ref.invalidate(currentUserProfileProvider); // wipe cached user info
+              final notifier = ref.read(authStateListenableProvider);
+              notifier.value++;
+              if (mounted) context.go('/login');
             },
             icon: const Icon(Icons.logout),
           )
@@ -76,13 +81,39 @@ class _HomeTab extends ConsumerWidget {
         isAdminAsync.when(
           data: (isAdmin) => isAdmin
               ? _HeroCard(
+                  title: 'Create User',
+                  subtitle: 'Add new members or admins to the system.',
+                  icon: Icons.person_add,
+                  onTap: () => context.push('/admin/create-user'),
+                )
+              : const SizedBox.shrink(),
+          loading: () => const SizedBox.shrink(),
+          error: (e, _) => const SizedBox.shrink(),
+        ),
+        const SizedBox(height: 12),
+        isAdminAsync.when(
+          data: (isAdmin) => isAdmin
+              ? _HeroCard(
                   title: 'Admin Attendance',
                   subtitle: 'Check-in participants and record server time.',
                   icon: Icons.fact_check,
                   onTap: () => context.push('/admin/attendance'),
                 )
               : const SizedBox.shrink(),
-          loading: () => const SizedBox(height: 56, child: Center(child: CircularProgressIndicator())),
+          loading: () => const SizedBox.shrink(),
+          error: (e, _) => const SizedBox.shrink(),
+        ),
+        const SizedBox(height: 12),
+        isAdminAsync.when(
+          data: (isAdmin) => isAdmin
+              ? _HeroCard(
+                  title: 'Analytics Dashboard',
+                  subtitle: 'View statistics, trends, and export attendance data.',
+                  icon: Icons.analytics,
+                  onTap: () => context.push('/admin/analytics'),
+                )
+              : const SizedBox.shrink(),
+          loading: () => const SizedBox.shrink(),
           error: (e, _) => const SizedBox.shrink(),
         ),
         const SizedBox(height: 12),
@@ -100,6 +131,13 @@ class _HomeTab extends ConsumerWidget {
         ),
         const SizedBox(height: 12),
         _HeroCard(
+          title: 'My Attendance',
+          subtitle: 'View your attendance history and track your consistency.',
+          icon: Icons.calendar_month,
+          onTap: () => context.push('/my-attendance'),
+        ),
+        const SizedBox(height: 12),
+        _HeroCard(
           title: 'Weekly Winner',
           subtitle: 'Celebrate the most consistent saint this week.',
           icon: Icons.celebration,
@@ -110,8 +148,40 @@ class _HomeTab extends ConsumerWidget {
   }
 }
 
-class _LeaderboardTab extends ConsumerWidget {
+class _LeaderboardTab extends ConsumerStatefulWidget {
   const _LeaderboardTab();
+
+  @override
+  ConsumerState<_LeaderboardTab> createState() => _LeaderboardTabState();
+}
+
+class _LeaderboardTabState extends ConsumerState<_LeaderboardTab> with SingleTickerProviderStateMixin {
+  late AnimationController _celebrationController;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _rotateAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _celebrationController = AnimationController(
+      duration: const Duration(milliseconds: 2000),
+      vsync: this,
+    )..repeat(reverse: true);
+    
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
+      CurvedAnimation(parent: _celebrationController, curve: Curves.easeInOut),
+    );
+    
+    _rotateAnimation = Tween<double>(begin: -0.05, end: 0.05).animate(
+      CurvedAnimation(parent: _celebrationController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _celebrationController.dispose();
+    super.dispose();
+  }
 
   DateTime _weekStart(DateTime d) {
     final monday = d.subtract(Duration(days: (d.weekday - DateTime.monday) % 7));
@@ -119,12 +189,22 @@ class _LeaderboardTab extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final week = _weekStart(DateTime.now());
+    final colorScheme = Theme.of(context).colorScheme;
 
     // Combined future: fetch weekly performance snapshot, then batch-fetch user profiles
     final combined = Future(() async {
-      final List<PerformanceWeekly> perf = await ref.read(performanceRepositoryProvider).fetchWeek(weekStart: week);
+      List<PerformanceWeekly> perf = await ref.read(performanceRepositoryProvider).fetchWeek(weekStart: week);
+      // If empty, attempt to compute, then refetch
+      if (perf.isEmpty) {
+        try {
+          await ref.read(performanceRepositoryProvider).computeWeek(weekStart: week);
+          perf = await ref.read(performanceRepositoryProvider).fetchWeek(weekStart: week);
+        } catch (_) {
+          // ignore compute errors here; UI will show empty state or error below
+        }
+      }
       final ids = perf.map((e) => e.userId).toSet().toList();
       final List<UserProfile> users = ids.isEmpty ? <UserProfile>[] : await ref.read(userRepositoryProvider).fetchUsersByIds(ids);
       final Map<String, UserProfile> byId = {for (var u in users) u.id: u};
@@ -145,27 +225,261 @@ class _LeaderboardTab extends ConsumerWidget {
         if (data.isEmpty) {
           return const Center(child: Text('No scores yet. Encourage the saints!'));
         }
-        return ListView.separated(
-          padding: const EdgeInsets.all(12),
-          itemCount: data.length,
-          separatorBuilder: (c, i) => const Divider(height: 0),
-          itemBuilder: (c, i) {
-            final PerformanceWeekly p = data[i];
-            final rank = p.rank ?? i + 1;
-            final profile = users[p.userId];
-            final displayName = (profile?.name?.isNotEmpty ?? false) ? profile!.name! : (profile?.email ?? p.userId.substring(0, 6));
-            final avatar = profile?.profilePictureUrl;
-            return ListTile(
-              leading: avatar == null || avatar.isEmpty
-                  ? CircleAvatar(child: Text('$rank'))
-                  : CircleAvatar(backgroundImage: CachedNetworkImageProvider(avatar), child: Text('$rank')),
-              title: Text(displayName),
-              subtitle: Text('Total score: ${p.totalScore}'),
-            );
-          },
+
+        // Get winner
+        final winner = data.first;
+        final winnerProfile = users[winner.userId];
+        final winnerName = (winnerProfile?.name?.isNotEmpty ?? false) 
+            ? winnerProfile!.name! 
+            : (winnerProfile?.email ?? winner.userId.substring(0, 6));
+
+        return CustomScrollView(
+          slivers: [
+            // Winner Celebration Header
+            SliverToBoxAdapter(
+              child: AnimatedBuilder(
+                animation: _celebrationController,
+                builder: (context, child) {
+                  return Transform.scale(
+                    scale: _scaleAnimation.value,
+                    child: Transform.rotate(
+                      angle: _rotateAnimation.value,
+                      child: Container(
+                        margin: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.amber.shade300,
+                              Colors.amber.shade600,
+                              Colors.amber.shade300,
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.amber.withOpacity(0.5),
+                              blurRadius: 20,
+                              spreadRadius: 2,
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.emoji_events, size: 40, color: Colors.amber.shade900),
+                                const SizedBox(width: 12),
+                                Text(
+                                  'WEEKLY CHAMPION',
+                                  style: TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w900,
+                                    color: Colors.amber.shade900,
+                                    letterSpacing: 1.5,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Icon(Icons.emoji_events, size: 40, color: Colors.amber.shade900),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            if (winnerProfile?.profilePictureUrl != null)
+                              Container(
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: Colors.amber.shade900, width: 4),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.3),
+                                      blurRadius: 10,
+                                    ),
+                                  ],
+                                ),
+                                child: CircleAvatar(
+                                  radius: 50,
+                                  backgroundImage: CachedNetworkImageProvider(winnerProfile!.profilePictureUrl!),
+                                ),
+                              )
+                            else
+                              Container(
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: Colors.amber.shade900, width: 4),
+                                  color: Colors.amber.shade100,
+                                ),
+                                child: CircleAvatar(
+                                  radius: 50,
+                                  backgroundColor: Colors.transparent,
+                                  child: Icon(Icons.person, size: 50, color: Colors.amber.shade900),
+                                ),
+                              ),
+                            const SizedBox(height: 16),
+                            Text(
+                              winnerName,
+                              style: TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.amber.shade900,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: Colors.amber.shade900,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                '${winner.totalScore} Points',
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              '🎉 Most Consistent This Week! 🎉',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.amber.shade900,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            
+            // Leaderboard Title
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: Text(
+                  'Full Rankings',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+            
+            // Rankings List
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, i) {
+                  final PerformanceWeekly p = data[i];
+                  final rank = p.rank ?? i + 1;
+                  final profile = users[p.userId];
+                  final displayName = (profile?.name?.isNotEmpty ?? false) 
+                      ? profile!.name! 
+                      : (profile?.email ?? p.userId.substring(0, 6));
+                  final avatar = profile?.profilePictureUrl;
+                  final isWinner = rank == 1;
+                  final isTopThree = rank <= 3;
+
+                  return Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isWinner
+                          ? Colors.amber.shade50
+                          : isTopThree
+                              ? colorScheme.primaryContainer.withOpacity(0.3)
+                              : null,
+                      borderRadius: BorderRadius.circular(12),
+                      border: isWinner
+                          ? Border.all(color: Colors.amber, width: 2)
+                          : isTopThree
+                              ? Border.all(color: colorScheme.primary.withOpacity(0.3))
+                              : null,
+                    ),
+                    child: ListTile(
+                      leading: Stack(
+                        children: [
+                          avatar == null || avatar.isEmpty
+                              ? CircleAvatar(
+                                  backgroundColor: isTopThree ? _getMedalColor(rank) : null,
+                                  child: isTopThree
+                                      ? Icon(_getMedalIcon(rank), color: Colors.white)
+                                      : Text('$rank'),
+                                )
+                              : CircleAvatar(backgroundImage: CachedNetworkImageProvider(avatar)),
+                          if (isTopThree)
+                            Positioned(
+                              right: -4,
+                              bottom: -4,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: _getMedalColor(rank),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: Colors.white, width: 2),
+                                ),
+                                child: Icon(_getMedalIcon(rank), size: 16, color: Colors.white),
+                              ),
+                            ),
+                        ],
+                      ),
+                      title: Text(
+                        displayName,
+                        style: TextStyle(
+                          fontWeight: isWinner ? FontWeight.w900 : isTopThree ? FontWeight.w700 : FontWeight.normal,
+                        ),
+                      ),
+                      subtitle: Text('Total score: ${p.totalScore}'),
+                      trailing: isWinner
+                          ? const Icon(Icons.emoji_events, color: Colors.amber, size: 32)
+                          : isTopThree
+                              ? Chip(
+                                  label: Text('#$rank', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  backgroundColor: _getMedalColor(rank),
+                                  labelStyle: const TextStyle(color: Colors.white),
+                                )
+                              : Text('#$rank', style: Theme.of(context).textTheme.bodyLarge),
+                    ),
+                  );
+                },
+                childCount: data.length,
+              ),
+            ),
+          ],
         );
       },
     );
+  }
+
+  Color _getMedalColor(int rank) {
+    switch (rank) {
+      case 1:
+        return Colors.amber.shade600; // Gold
+      case 2:
+        return Colors.grey.shade400; // Silver
+      case 3:
+        return Colors.brown.shade400; // Bronze
+      default:
+        return Colors.grey;
+    }
+  }
+
+  IconData _getMedalIcon(int rank) {
+    switch (rank) {
+      case 1:
+        return Icons.emoji_events;
+      case 2:
+        return Icons.military_tech;
+      case 3:
+        return Icons.workspace_premium;
+      default:
+        return Icons.circle;
+    }
   }
 }
 
@@ -260,7 +574,7 @@ class _ProfileTab extends ConsumerWidget {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: () => showModalBottomSheet(
+                  onPressed: () => showModalBottomSheet<void>(
                     context: context,
                     showDragHandle: true,
                     isScrollControlled: true,
@@ -374,23 +688,65 @@ class _EditProfileSheetState extends ConsumerState<_EditProfileSheet> {
       );
       final url = client.storage.from('avatars').getPublicUrl(path);
       await client.from('users').update({ 'profile_picture_url': url }).eq('id', uid);
-      if (mounted) Navigator.pop(context);
+      
+      // Invalidate profile to refresh UI
+      ref.invalidate(currentUserProfileProvider);
+      
+      if (mounted) {
+        showTopSuccess(context, 'Avatar updated successfully');
+        Navigator.pop(context);
+      }
     } catch (e) {
-  if (mounted) showTopError(context, 'Avatar upload failed: $e');
+      if (mounted) {
+        final errorMsg = e.toString().contains('storage')
+            ? 'Avatar upload failed. Please check your internet connection.'
+            : 'Failed to update avatar. Please try again.';
+        showTopError(context, errorMsg);
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
 
   Future<void> _saveName() async {
+    final name = _name.text.trim();
+    
+    // Validation
+    if (name.isEmpty) {
+      showTopError(context, 'Display name cannot be empty');
+      return;
+    }
+    
+    if (name.length < 2) {
+      showTopError(context, 'Display name must be at least 2 characters');
+      return;
+    }
+    
+    if (name.length > 50) {
+      showTopError(context, 'Display name must be less than 50 characters');
+      return;
+    }
+    
     setState(() => _saving = true);
     try {
       final client = ref.read(supabaseProvider);
       final uid = client.auth.currentUser!.id;
-      await client.from('users').update({ 'name': _name.text.trim() }).eq('id', uid);
-      if (mounted) Navigator.pop(context);
+      await client.from('users').update({ 'name': name }).eq('id', uid);
+      
+      // Invalidate profile to refresh UI
+      ref.invalidate(currentUserProfileProvider);
+      
+      if (mounted) {
+        showTopSuccess(context, 'Profile updated successfully');
+        Navigator.pop(context);
+      }
     } catch (e) {
-  if (mounted) showTopError(context, 'Save failed: $e');
+      if (mounted) {
+        final errorMsg = e.toString().contains('network')
+            ? 'Network error. Please check your connection.'
+            : 'Failed to update profile. Please try again.';
+        showTopError(context, errorMsg);
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
