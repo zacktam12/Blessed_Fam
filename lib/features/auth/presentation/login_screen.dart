@@ -43,8 +43,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   String _getReadableError(dynamic error) {
     final errorStr = error.toString().toLowerCase();
-    
-    if (errorStr.contains('invalid login credentials') || 
+
+    if (errorStr.contains('invalid login credentials') ||
         errorStr.contains('invalid_credentials')) {
       return 'Invalid email or password. Please try again.';
     }
@@ -60,34 +60,57 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (errorStr.contains('timeout')) {
       return 'Connection timed out. Please try again.';
     }
-    
+
     return 'Login failed. Please check your credentials and try again.';
   }
 
   Future<void> _signIn() async {
     // Dismiss keyboard
     FocusScope.of(context).unfocus();
-    
+
     // Validate form
     if (!_formKey.currentState!.validate()) {
       return;
     }
-    
+
     setState(() {
       _isLoading = true;
       _error = null;
     });
-    
+
     try {
+      // Sign in
       await ref.read(authRepositoryProvider).signInWithEmailPassword(
-        email: _email.text.trim(),
-        password: _password.text,
-      );
-      // Force reload the session and notify
-      await Future<void>.delayed(const Duration(milliseconds: 100)); // let auth event propagate
+            email: _email.text.trim(),
+            password: _password.text,
+          );
+
+      // Wait for auth state to propagate
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+
+      // Invalidate all cached data
       ref.invalidate(currentSessionProvider);
+      ref.invalidate(currentUserProfileProvider);
+      ref.invalidate(isAdminProvider);
+
+      // Verify user profile exists
+      final profile = await ref.read(currentUserProfileProvider.future);
+      if (profile == null) {
+        // Profile doesn't exist - sign out and show error
+        await ref.read(authRepositoryProvider).signOut();
+        if (mounted) {
+          setState(() => _error =
+              'No user profile found. Please contact the administrator.');
+          _isLoading = false;
+        }
+        return;
+      }
+
+      // Force router to refresh
       final notifier = ref.read(authStateListenableProvider);
-      notifier.value++; // force GoRouter to refresh
+      notifier.value++;
+
+      // Navigate to home
       if (mounted) context.go('/');
     } catch (e) {
       setState(() => _error = _getReadableError(e));
@@ -148,29 +171,29 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     textInputAction: TextInputAction.done,
                     onFieldSubmitted: (_) => _signIn(),
                   ),
-                const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () => context.push('/forgot'),
-                    child: const Text('Forgot password?'),
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () => context.push('/forgot'),
+                      child: const Text('Forgot password?'),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: _isLoading ? null : _signIn,
-                    icon: _isLoading
-                        ? const SizedBox(
-                            height: 18,
-                            width: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.login),
-                    label: const Text('Sign in'),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _isLoading ? null : _signIn,
+                      icon: _isLoading
+                          ? const SizedBox(
+                              height: 18,
+                              width: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.login),
+                      label: const Text('Sign in'),
+                    ),
                   ),
-                ),
                   if (_error != null)
                     Container(
                       margin: const EdgeInsets.only(top: 16),
@@ -182,12 +205,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.error_outline, color: Colors.red.shade700, size: 20),
+                          Icon(Icons.error_outline,
+                              color: Colors.red.shade700, size: 20),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               _error!,
-                              style: TextStyle(color: Colors.red.shade700, fontSize: 13),
+                              style: TextStyle(
+                                  color: Colors.red.shade700, fontSize: 13),
                             ),
                           ),
                         ],
