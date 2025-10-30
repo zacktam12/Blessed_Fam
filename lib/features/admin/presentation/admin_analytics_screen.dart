@@ -10,10 +10,11 @@ class AdminAnalyticsScreen extends ConsumerStatefulWidget {
   const AdminAnalyticsScreen({super.key});
 
   @override
-  ConsumerState<AdminAnalyticsScreen> createState() => _AdminAnalyticsScreenState();
+  ConsumerState<AdminAnalyticsScreen> createState() =>
+      _AdminAnalyticsScreenState();
 }
 
-class _AdminAnalyticsScreenState extends ConsumerState<AdminAnalyticsScreen> 
+class _AdminAnalyticsScreenState extends ConsumerState<AdminAnalyticsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   bool _isExporting = false;
@@ -32,15 +33,17 @@ class _AdminAnalyticsScreenState extends ConsumerState<AdminAnalyticsScreen>
 
   Future<void> _exportData() async {
     setState(() => _isExporting = true);
-    
+
     try {
-      final csv = await ref.read(analyticsRepositoryProvider).generateCSVExport();
-      
+      final csv =
+          await ref.read(analyticsRepositoryProvider).generateCSVExport();
+
       // Copy to clipboard
       await Clipboard.setData(ClipboardData(text: csv));
-      
+
       if (mounted) {
-        showTopSuccess(context, 'CSV data copied to clipboard! Paste into Excel or Google Sheets.');
+        showTopSuccess(context,
+            'CSV data copied to clipboard! Paste into Excel or Google Sheets.');
       }
     } catch (e) {
       if (mounted) {
@@ -102,13 +105,13 @@ class _OverviewTab extends ConsumerWidget {
         if (snapshot.connectionState != ConnectionState.done) {
           return const Center(child: CircularProgressIndicator());
         }
-        
+
         if (snapshot.hasError) {
           return Center(child: Text('Error: ${snapshot.error}'));
         }
-        
+
         final stats = snapshot.data!;
-        
+
         return RefreshIndicator(
           onRefresh: () async {
             // Force refresh by invalidating
@@ -120,11 +123,11 @@ class _OverviewTab extends ConsumerWidget {
               Text(
                 'System Overview',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                      fontWeight: FontWeight.bold,
+                    ),
               ),
               const SizedBox(height: 16),
-              
+
               // Stats Cards
               GridView.count(
                 crossAxisCount: 2,
@@ -132,7 +135,8 @@ class _OverviewTab extends ConsumerWidget {
                 physics: const NeverScrollableScrollPhysics(),
                 mainAxisSpacing: 12,
                 crossAxisSpacing: 12,
-                childAspectRatio: 1.5,
+                // Slightly taller cards to avoid vertical overflow on narrow/heavy-content devices
+                childAspectRatio: 1.2,
                 children: [
                   _StatCard(
                     title: 'Total Members',
@@ -161,25 +165,25 @@ class _OverviewTab extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 24),
-              
+
               // Session Statistics
               Text(
                 'Session Performance',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                      fontWeight: FontWeight.bold,
+                    ),
               ),
               const SizedBox(height: 12),
-              
+
               FutureBuilder<List<Map<String, dynamic>>>(
                 future: ref.read(analyticsRepositoryProvider).getSessionStats(),
                 builder: (context, snapshot) {
                   if (!snapshot.hasData) {
                     return const Center(child: CircularProgressIndicator());
                   }
-                  
+
                   final sessions = snapshot.data!;
-                  
+
                   return Card(
                     child: ListView.separated(
                       shrinkWrap: true,
@@ -190,15 +194,21 @@ class _OverviewTab extends ConsumerWidget {
                         final session = sessions[i];
                         final total = session['total_records'] as int;
                         final present = session['present_count'] as int;
-                        final rate = total > 0 
+                        final rate = total > 0
                             ? (present / total * 100).toStringAsFixed(0)
                             : '0';
-                        
+
                         return ListTile(
                           title: Text(session['name'] as String),
                           subtitle: Text('$present/$total present'),
                           trailing: Chip(
-                            label: Text('$rate%'),
+                            label: Text(
+                              '$rate%',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey.shade900,
+                              ),
+                            ),
                             backgroundColor: _getRateColor(double.parse(rate)),
                           ),
                         );
@@ -233,19 +243,19 @@ class _TrendsTab extends ConsumerWidget {
         if (snapshot.connectionState != ConnectionState.done) {
           return const Center(child: CircularProgressIndicator());
         }
-        
+
         if (snapshot.hasError) {
           return Center(child: Text('Error: ${snapshot.error}'));
         }
-        
+
         final trends = snapshot.data!;
-        
+
         if (trends.isEmpty) {
           return const Center(
             child: Text('No trend data available'),
           );
         }
-        
+
         return RefreshIndicator(
           onRefresh: () async {
             ref.invalidate(analyticsRepositoryProvider);
@@ -256,15 +266,15 @@ class _TrendsTab extends ConsumerWidget {
               Text(
                 'Weekly Attendance Trends',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                      fontWeight: FontWeight.bold,
+                    ),
               ),
               Text(
                 'Last ${trends.length} weeks',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 24),
-              
+
               // Simple bar chart visualization
               ...trends.map((trend) {
                 final weekDate = DateTime.parse(trend['week'] as String);
@@ -272,7 +282,7 @@ class _TrendsTab extends ConsumerWidget {
                 final rate = trend['rate'] as int;
                 final present = trend['present'] as int;
                 final total = trend['total'] as int;
-                
+
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 16),
                   child: Column(
@@ -281,7 +291,9 @@ class _TrendsTab extends ConsumerWidget {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(weekLabel, style: const TextStyle(fontWeight: FontWeight.w600)),
+                          Text(weekLabel,
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w600)),
                           Text('$present/$total ($rate%)'),
                         ],
                       ),
@@ -293,7 +305,11 @@ class _TrendsTab extends ConsumerWidget {
                           minHeight: 20,
                           backgroundColor: Colors.grey.shade200,
                           valueColor: AlwaysStoppedAnimation<Color>(
-                            rate >= 80 ? Colors.green : rate >= 60 ? Colors.orange : Colors.red,
+                            rate >= 80
+                                ? Colors.green
+                                : rate >= 60
+                                    ? Colors.orange
+                                    : Colors.red,
                           ),
                         ),
                       ),
@@ -321,17 +337,17 @@ class _MembersTab extends ConsumerWidget {
         if (snapshot.connectionState != ConnectionState.done) {
           return const Center(child: CircularProgressIndicator());
         }
-        
+
         if (snapshot.hasError) {
           return Center(child: Text('Error: ${snapshot.error}'));
         }
-        
+
         final members = snapshot.data!;
-        
+
         if (members.isEmpty) {
           return const Center(child: Text('No member data available'));
         }
-        
+
         return RefreshIndicator(
           onRefresh: () async {
             ref.invalidate(analyticsRepositoryProvider);
@@ -342,21 +358,20 @@ class _MembersTab extends ConsumerWidget {
               Text(
                 'Member Participation',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                      fontWeight: FontWeight.bold,
+                    ),
               ),
               Text(
                 '${members.length} members',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 16),
-              
               ...members.map((member) {
                 final name = member['name'] as String;
                 final rate = member['rate'] as int;
                 final present = member['present'] as int;
                 final total = member['total'] as int;
-                
+
                 return Card(
                   margin: const EdgeInsets.only(bottom: 12),
                   child: Padding(
@@ -387,8 +402,9 @@ class _MembersTab extends ConsumerWidget {
                               ),
                               child: Text(
                                 '$rate%',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontWeight: FontWeight.bold,
+                                  color: Colors.grey.shade900,
                                 ),
                               ),
                             ),
@@ -455,17 +471,22 @@ class _StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        // reduce vertical padding to give more room inside constrained grid cells
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 32, color: color),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
+            Icon(icon, size: 24, color: color),
+            const SizedBox(height: 6),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+                maxLines: 1,
               ),
             ),
             const SizedBox(height: 4),
@@ -473,6 +494,8 @@ class _StatCard extends StatelessWidget {
               title,
               style: Theme.of(context).textTheme.bodySmall,
               textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
