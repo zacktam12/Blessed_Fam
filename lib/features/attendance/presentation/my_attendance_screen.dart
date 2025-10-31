@@ -360,7 +360,8 @@ class _AttendanceListTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(dateStr),
-          if (timeStr != null) Text('Arrived at $timeStr', style: const TextStyle(fontSize: 12)),
+          // Only show arrival time if present
+          if (isPresent && timeStr != null) Text('Arrived at $timeStr', style: const TextStyle(fontSize: 12)),
         ],
       ),
       trailing: Chip(
