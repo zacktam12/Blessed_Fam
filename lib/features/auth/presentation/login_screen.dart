@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/providers/auth_providers.dart';
 import '../../../core/utils/flash.dart';
@@ -19,6 +20,45 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
   bool _obscure = true;
+  bool _rememberMe = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRememberedEmail();
+  }
+
+  Future<void> _loadRememberedEmail() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final rememberedEmail = prefs.getString('remembered_email');
+      final rememberMe = prefs.getBool('remember_me') ?? false;
+      
+      if (rememberedEmail != null && rememberMe) {
+        setState(() {
+          _email.text = rememberedEmail;
+          _rememberMe = true;
+        });
+      }
+    } catch (e) {
+      // Silently fail if preferences can't be loaded
+    }
+  }
+
+  Future<void> _saveRememberMe() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (_rememberMe) {
+        await prefs.setString('remembered_email', _email.text.trim());
+        await prefs.setBool('remember_me', true);
+      } else {
+        await prefs.remove('remembered_email');
+        await prefs.setBool('remember_me', false);
+      }
+    } catch (e) {
+      // Silently fail if preferences can't be saved
+    }
+  }
 
   String? _validateEmail(String? value) {
     if (value == null || value.trim().isEmpty) {
@@ -78,6 +118,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     try {
+      // Save remember me preference
+      await _saveRememberMe();
+
       // Sign in
       await ref.read(authRepositoryProvider).signInWithEmailPassword(
             email: _email.text.trim(),
@@ -200,12 +243,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     onFieldSubmitted: (_) => _signIn(),
                   ),
                   const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () => context.push('/forgot'),
-                      child: const Text('Forgot password?'),
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: CheckboxListTile(
+                          title: const Text('Remember me'),
+                          value: _rememberMe,
+                          onChanged: (value) {
+                            setState(() => _rememberMe = value ?? false);
+                          },
+                          controlAffinity: ListTileControlAffinity.leading,
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => context.push('/forgot'),
+                        child: const Text('Forgot password?'),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 16),
                   SizedBox(
