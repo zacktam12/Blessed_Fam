@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../repositories/analytics_repository.dart';
+import '../../../repositories/user_repository.dart';
 import '../../../core/utils/flash.dart';
+import 'member_attendance_detail_screen.dart';
 
 class AdminAnalyticsScreen extends ConsumerStatefulWidget {
   const AdminAnalyticsScreen({super.key});
@@ -367,18 +369,26 @@ class _MembersTab extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
               ...members.map((member) {
+                final userId = member['userId'] as String;
                 final name = member['name'] as String;
+                final email = member['email'] as String;
                 final rate = member['rate'] as int;
                 final present = member['present'] as int;
                 final total = member['total'] as int;
 
                 return Card(
                   margin: const EdgeInsets.only(bottom: 12),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
+                  child: InkWell(
+                    onTap: () {
+                      // Navigate to detailed member attendance view
+                      _navigateToMemberDetail(context, ref, userId, name, email);
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -408,6 +418,11 @@ class _MembersTab extends ConsumerWidget {
                                 ),
                               ),
                             ),
+                            IconButton(
+                              icon: Icon(Icons.delete_outline, color: Colors.red.shade400),
+                              onPressed: () => _confirmDeleteMember(context, ref, userId, name),
+                              tooltip: 'Delete member',
+                            ),
                           ],
                         ),
                         const SizedBox(height: 8),
@@ -435,9 +450,10 @@ class _MembersTab extends ConsumerWidget {
                           ],
                         ),
                       ],
-                    ),
-                  ),
-                );
+                      ), // Column
+                    ), // Padding
+                  ), // InkWell
+                ); // Card
               }),
             ],
           ),
@@ -450,6 +466,77 @@ class _MembersTab extends ConsumerWidget {
     if (rate >= 80) return Colors.green.shade100;
     if (rate >= 60) return Colors.orange.shade100;
     return Colors.red.shade100;
+  }
+
+  void _navigateToMemberDetail(
+    BuildContext context,
+    WidgetRef ref,
+    String userId,
+    String name,
+    String email,
+  ) async {
+    // Fetch the full user profile
+    final users = await ref.read(userRepositoryProvider).listAllUsers();
+    final member = users.firstWhere((user) => user.id == userId);
+
+    if (context.mounted) {
+      Navigator.push<void>(
+        context,
+        MaterialPageRoute<void>(
+          builder: (context) => MemberAttendanceDetailScreen(member: member),
+        ),
+      );
+    }
+  }
+
+  Future<void> _confirmDeleteMember(
+    BuildContext context,
+    WidgetRef ref,
+    String userId,
+    String name,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Member'),
+        content: Text(
+          'Are you sure you want to delete $name?\n\n'
+          'This will permanently remove:\n'
+          '• Their user account\n'
+          '• All attendance records\n'
+          '• All performance data\n\n'
+          'This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      try {
+        await ref.read(userRepositoryProvider).deleteUser(userId);
+        if (context.mounted) {
+          showTopSuccess(context, '$name deleted successfully');
+          // Refresh the members list
+          ref.invalidate(analyticsRepositoryProvider);
+        }
+      } catch (e) {
+        if (context.mounted) {
+          showTopError(context, 'Failed to delete member: ${e.toString()}');
+        }
+      }
+    }
   }
 }
 
