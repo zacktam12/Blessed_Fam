@@ -53,6 +53,18 @@ class UserRepository {
         .toList();
   }
 
+  /// Lists only members (excludes admins) for attendance tracking and rankings
+  Future<List<UserProfile>> listMembers() async {
+    final res = await _client
+        .from('users')
+        .select()
+        .eq('role', 'member')
+        .order('name', ascending: true);
+    return (res as List<dynamic>)
+        .map((e) => UserProfile.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   Future<List<UserProfile>> fetchUsersByIds(List<String> ids) async {
     if (ids.isEmpty) return [];
     // Fall back to fetching all users and filtering locally. This is simpler
@@ -62,5 +74,20 @@ class UserRepository {
     final all = await listAllUsers();
     final setIds = ids.toSet();
     return all.where((u) => setIds.contains(u.id)).toList();
+  }
+
+  /// Delete a user (admin only)
+  Future<void> deleteUser(String userId) async {
+    try {
+      // Delete user from users table
+      await _client.from('users').delete().eq('id', userId);
+      
+      // Note: Related records (attendance, performance, etc.) should be handled
+      // by cascade delete rules in the database or cleaned up separately
+      debugPrint('✅ User $userId deleted successfully');
+    } catch (e) {
+      debugPrint('❌ Failed to delete user: $e');
+      rethrow;
+    }
   }
 }

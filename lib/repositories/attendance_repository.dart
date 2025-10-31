@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -26,7 +27,26 @@ class AttendanceRepository {
       'p_date': date.toIso8601String().substring(0, 10),
       'p_status': status,
     });
-    return AttendanceRecord.fromJson(res);
+    final record = AttendanceRecord.fromJson(res);
+
+    // Recompute weekly performance snapshot for the affected week so that
+    // leaderboard/weekly winner stays in sync with new attendance.
+    try {
+      final weekday = date.weekday; // 1=Mon..7=Sun
+      final monday = date.subtract(Duration(days: (weekday - DateTime.monday) % 7));
+      final weekStartIso = DateTime(monday.year, monday.month, monday.day)
+          .toIso8601String()
+          .substring(0, 10);
+      await _client.rpc<void>('compute_weekly_performance', params: {
+        'p_week_start': weekStartIso,
+      });
+      debugPrint('✅ Weekly performance recomputed for week starting $weekStartIso');
+    } catch (e) {
+      // Non-fatal: UI will still reflect attendance; leaderboard may refresh later.
+      debugPrint('⚠️ Failed to recompute weekly performance: $e');
+    }
+
+    return record;
   }
 
   Future<List<AttendanceRecord>> fetchForSessionDate({

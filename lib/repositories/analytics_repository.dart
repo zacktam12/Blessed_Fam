@@ -143,10 +143,11 @@ class AnalyticsRepository {
 
   /// Get individual member participation rates
   Future<List<Map<String, dynamic>>> getMemberParticipation() async {
-    // Get all users
+    // Get members only (exclude admins)
     final usersResponse = await _client
         .from('users')
         .select('id, name, email')
+        .eq('role', 'member')
         .order('name');
     
     final users = List<Map<String, dynamic>>.from(usersResponse as List);

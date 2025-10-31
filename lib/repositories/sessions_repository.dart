@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -19,6 +20,20 @@ class SessionsRepository {
     return (res as List<dynamic>)
         .map((e) => SessionType.fromJson(e as Map<String, dynamic>))
         .toList();
+  }
+
+  Future<void> updateSessionTime({
+    required int sessionId,
+    required TimeOfDay? startTime,
+  }) async {
+    // Convert TimeOfDay to HH:MM string format
+    final timeString = startTime != null
+        ? '${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}'
+        : null;
+
+    await _client.from('sessions').update({
+      'start_time': timeString,
+    }).eq('id', sessionId);
   }
 }
 
