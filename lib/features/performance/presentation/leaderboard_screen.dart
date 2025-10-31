@@ -44,7 +44,7 @@ class LeaderboardScreen extends ConsumerWidget {
           // Merge with all users to include zero-point users
           final List<UserProfile> allUsers = await ref
               .read(userRepositoryProvider)
-              .listAllUsers();
+              .listMembers();
           final Map<String, UserProfile> byId = {
             for (var u in allUsers) u.id: u,
           };

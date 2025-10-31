@@ -194,11 +194,32 @@ class _HomeTab extends ConsumerWidget {
           error: (e, _) => const SizedBox.shrink(),
         ),
         const SizedBox(height: 12),
-        _HeroCard(
-          title: 'My Attendance',
-          subtitle: 'View your attendance history and track your consistency.',
-          icon: Icons.calendar_month,
-          onTap: () => context.push('/my-attendance'),
+        isAdminAsync.when(
+          data: (isAdmin) => isAdmin
+              ? _HeroCard(
+                  title: 'Manage Sessions',
+                  subtitle:
+                      'Configure session times and time-tracking settings.',
+                  icon: Icons.settings,
+                  onTap: () => context.push('/admin/manage-sessions'),
+                )
+              : const SizedBox.shrink(),
+          loading: () => const SizedBox.shrink(),
+          error: (e, _) => const SizedBox.shrink(),
+        ),
+        const SizedBox(height: 12),
+        // Only show "My Attendance" for non-admin members
+        isAdminAsync.when(
+          data: (isAdmin) => !isAdmin
+              ? _HeroCard(
+                  title: 'My Attendance',
+                  subtitle: 'View your attendance history and track your consistency.',
+                  icon: Icons.calendar_month,
+                  onTap: () => context.push('/my-attendance'),
+                )
+              : const SizedBox.shrink(),
+          loading: () => const SizedBox.shrink(),
+          error: (e, _) => const SizedBox.shrink(),
         ),
         const SizedBox(height: 12),
         _HeroCard(
@@ -225,6 +246,7 @@ class _LeaderboardTabState extends ConsumerState<_LeaderboardTab>
   late AnimationController _celebrationController;
   late Animation<double> _scaleAnimation;
   late Animation<double> _rotateAnimation;
+  int _refreshKey = 0;
 
   @override
   void initState() {
@@ -241,6 +263,10 @@ class _LeaderboardTabState extends ConsumerState<_LeaderboardTab>
     _rotateAnimation = Tween<double>(begin: -0.05, end: 0.05).animate(
       CurvedAnimation(parent: _celebrationController, curve: Curves.easeInOut),
     );
+  }
+
+  Future<void> _refreshLeaderboard() async {
+    setState(() => _refreshKey++);
   }
 
   @override
@@ -263,31 +289,33 @@ class _LeaderboardTabState extends ConsumerState<_LeaderboardTab>
 
     // Combined future: fetch weekly performance snapshot, then batch-fetch user profiles
     final combined = Future(() async {
-      // Fetch performance data for the week
+      // ALWAYS recompute to ensure fresh data based on current attendance
+      try {
+        await ref
+            .read(performanceRepositoryProvider)
+            .computeWeek(weekStart: week);
+        debugPrint('✅ Successfully computed weekly performance');
+      } catch (e) {
+        debugPrint('❌ Error computing weekly performance: $e');
+        // Rethrow to see the actual error in UI if needed
+        rethrow;
+      }
+      
+      // Fetch performance data for the week (now guaranteed to be fresh)
       List<PerformanceWeekly> perf = await ref
           .read(performanceRepositoryProvider)
           .fetchWeek(weekStart: week);
-      // If empty, attempt to compute, then refetch
-      if (perf.isEmpty) {
-        try {
-          await ref
-              .read(performanceRepositoryProvider)
-              .computeWeek(weekStart: week);
-          perf = await ref
-              .read(performanceRepositoryProvider)
-              .fetchWeek(weekStart: week);
-        } catch (_) {
-          // ignore compute errors here; UI will show empty state or error below
-        }
-      }
-      // Merge with all users to include zero-point users
-      final List<UserProfile> allUsers =
-          await ref.read(userRepositoryProvider).listAllUsers();
-      final Map<String, UserProfile> byId = {for (var u in allUsers) u.id: u};
+      debugPrint('📊 Fetched ${perf.length} performance records from database');
+      
+      // Merge with ONLY members (excludes admins) to include zero-point users
+      final List<UserProfile> members =
+          await ref.read(userRepositoryProvider).listMembers();
+      debugPrint('👥 Found ${members.length} members (admins excluded)');
+      final Map<String, UserProfile> byId = {for (var u in members) u.id: u};
       final Set<String> scoredIds = perf.map((e) => e.userId).toSet();
       final List<PerformanceWeekly> merged = [
         ...perf,
-        for (final u in allUsers)
+        for (final u in members)
           if (!scoredIds.contains(u.id))
             PerformanceWeekly(
               id: 0,
@@ -302,6 +330,7 @@ class _LeaderboardTabState extends ConsumerState<_LeaderboardTab>
     });
 
     return FutureBuilder<Map<String, dynamic>>(
+      key: ValueKey(_refreshKey),
       future: combined,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
@@ -329,8 +358,10 @@ class _LeaderboardTabState extends ConsumerState<_LeaderboardTab>
             ? winnerProfile!.name!
             : (winnerProfile?.email ?? winner.userId.substring(0, 6));
 
-        return CustomScrollView(
-          slivers: [
+        return RefreshIndicator(
+          onRefresh: _refreshLeaderboard,
+          child: CustomScrollView(
+            slivers: [
             // Winner Celebration Header
             SliverToBoxAdapter(
               child: AnimatedBuilder(
@@ -624,6 +655,7 @@ class _LeaderboardTabState extends ConsumerState<_LeaderboardTab>
               }, childCount: data.length),
             ),
           ],
+          ),
         );
       },
     );
@@ -913,57 +945,246 @@ class _EditProfileSheet extends ConsumerStatefulWidget {
 
 class _EditProfileSheetState extends ConsumerState<_EditProfileSheet> {
   final TextEditingController _name = TextEditingController();
+  final TextEditingController _email = TextEditingController();
+  final TextEditingController _currentPassword = TextEditingController();
+  final TextEditingController _newPassword = TextEditingController();
+  final TextEditingController _confirmPassword = TextEditingController();
   bool _saving = false;
+  bool _showPasswordFields = false;
+  bool _showEmailField = false;
 
   @override
   void initState() {
     super.initState();
     ref.read(currentUserProfileProvider.future).then((p) {
-      if (p != null) _name.text = p.name ?? '';
+      if (p != null) {
+        _name.text = p.name ?? '';
+        _email.text = p.email;
+      }
     });
   }
 
+  @override
+  void dispose() {
+    _name.dispose();
+    _email.dispose();
+    _currentPassword.dispose();
+    _newPassword.dispose();
+    _confirmPassword.dispose();
+    super.dispose();
+  }
+
   Future<void> _pickAndUploadAvatar() async {
-    // Lazy import to keep scope simple
-    // ignore: depend_on_referenced_packages
-    final picker = await Future.sync(() => ImagePicker());
-    final img = await picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 1024,
-      imageQuality: 82,
-    );
-    if (img == null) return;
-    setState(() => _saving = true);
     try {
+      // Lazy import to keep scope simple
+      // ignore: depend_on_referenced_packages
+      final picker = ImagePicker();
+      final img = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        imageQuality: 82,
+      );
+      
+      if (img == null) {
+        debugPrint('📷 Image picker cancelled by user');
+        return;
+      }
+
+      debugPrint('📷 Image selected: ${img.path}');
+      setState(() => _saving = true);
+      
       final client = ref.read(supabaseProvider);
       final uid = client.auth.currentUser!.id;
-      final path = 'avatars/$uid.jpg';
+      
+      // Read image bytes
+      final bytes = await img.readAsBytes();
+      debugPrint('📷 Image size: ${bytes.length} bytes');
+      
+      // Upload to storage with timestamp to avoid cache issues
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final path = 'avatars/$uid-$timestamp.jpg';
+      
+      debugPrint('📷 Uploading to: $path');
       await client.storage.from('avatars').uploadBinary(
-            path,
-            await img.readAsBytes(),
-            fileOptions: const FileOptions(
-              upsert: true,
-              contentType: 'image/jpeg',
-            ),
-          );
+        path,
+        bytes,
+        fileOptions: const FileOptions(
+          upsert: true,
+          contentType: 'image/jpeg',
+        ),
+      );
+      
+      // Get public URL with cache buster
       final url = client.storage.from('avatars').getPublicUrl(path);
+      debugPrint('📷 Public URL: $url');
+      
+      // Update users table
       await client
           .from('users')
           .update({'profile_picture_url': url}).eq('id', uid);
+      
+      debugPrint('📷 Database updated');
 
       // Invalidate profile to refresh UI
       ref.invalidate(currentUserProfileProvider);
 
       if (mounted) {
-        showTopSuccess(context, 'Avatar updated successfully');
-        Navigator.pop(context);
+        showTopSuccess(context, 'Profile picture updated successfully!');
+        // Don't close modal immediately - let user see the success
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+        if (mounted) Navigator.pop(context);
+      }
+    } catch (e, stackTrace) {
+      debugPrint('❌ Avatar upload error: $e');
+      debugPrint('Stack trace: $stackTrace');
+      
+      if (mounted) {
+        String errorMsg = 'Failed to update profile picture.';
+        
+        final errorStr = e.toString().toLowerCase();
+        if (errorStr.contains('storage') || errorStr.contains('bucket')) {
+          errorMsg = 'Storage error. Please ensure the avatars bucket exists in Supabase.';
+        } else if (errorStr.contains('network') || errorStr.contains('connection')) {
+          errorMsg = 'Network error. Please check your internet connection.';
+        } else if (errorStr.contains('permission') || errorStr.contains('policy')) {
+          errorMsg = 'Permission denied. Please check storage policies.';
+        }
+        
+        showTopError(context, errorMsg);
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _changeEmail() async {
+    final newEmail = _email.text.trim();
+
+    // Validation
+    if (newEmail.isEmpty) {
+      showTopError(context, 'Email cannot be empty');
+      return;
+    }
+
+    if (!newEmail.contains('@')) {
+      showTopError(context, 'Please enter a valid email address');
+      return;
+    }
+
+    // Get current email to check if it's actually changing
+    final client = ref.read(supabaseProvider);
+    final currentEmail = client.auth.currentUser?.email;
+    
+    if (currentEmail == newEmail) {
+      showTopError(context, 'This is already your current email');
+      return;
+    }
+
+    setState(() => _saving = true);
+    try {
+      // Update email in Supabase Auth
+      // Note: This sends a confirmation email to the NEW address
+      await client.auth.updateUser(UserAttributes(email: newEmail));
+
+      // DO NOT update users table yet - it will be updated automatically
+      // when the user confirms the new email via the confirmation link
+      // This prevents login issues
+
+      // Invalidate profile to refresh UI
+      ref.invalidate(currentUserProfileProvider);
+
+      if (mounted) {
+        // Show detailed instructions
+        await showDialog<void>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Verify Your Email'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('A confirmation email has been sent to:'),
+                const SizedBox(height: 8),
+                Text(
+                  newEmail,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 16),
+                const Text('Please check your inbox and click the confirmation link.'),
+                const SizedBox(height: 8),
+                const Text(
+                  'Important: Continue using your old email to login until you confirm the new one.',
+                  style: TextStyle(color: Colors.orange, fontSize: 12),
+                ),
+              ],
+            ),
+            actions: [
+              FilledButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.pop(context); // Close edit profile modal too
+                },
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Email update error: $e');
+      if (mounted) {
+        String errorMsg = 'Failed to update email';
+        
+        final errorStr = e.toString().toLowerCase();
+        if (errorStr.contains('same')) {
+          errorMsg = 'This is already your current email';
+        } else if (errorStr.contains('invalid')) {
+          errorMsg = 'Invalid email format';
+        } else if (errorStr.contains('rate')) {
+          errorMsg = 'Too many requests. Please try again later.';
+        }
+        
+        showTopError(context, errorMsg);
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _changePassword() async {
+    final newPassword = _newPassword.text.trim();
+    final confirmPassword = _confirmPassword.text.trim();
+
+    // Validation
+    if (newPassword.isEmpty) {
+      showTopError(context, 'New password cannot be empty');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      showTopError(context, 'Password must be at least 6 characters');
+      return;
+    }
+
+    if (newPassword != confirmPassword) {
+      showTopError(context, 'Passwords do not match');
+      return;
+    }
+
+    setState(() => _saving = true);
+    try {
+      final client = ref.read(supabaseProvider);
+      await client.auth.updateUser(UserAttributes(password: newPassword));
+
+      if (mounted) {
+        showTopSuccess(context, 'Password updated successfully');
+        _newPassword.clear();
+        _confirmPassword.clear();
+        setState(() => _showPasswordFields = false);
       }
     } catch (e) {
       if (mounted) {
-        final errorMsg = e.toString().contains('storage')
-            ? 'Avatar upload failed. Please check your internet connection.'
-            : 'Failed to update avatar. Please try again.';
-        showTopError(context, errorMsg);
+        showTopError(context, 'Failed to update password: ${e.toString()}');
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -1022,42 +1243,195 @@ class _EditProfileSheetState extends ConsumerState<_EditProfileSheet> {
       ),
       child: SafeArea(
         top: false,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: _name,
-                decoration: const InputDecoration(labelText: 'Display name'),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _saving ? null : _pickAndUploadAvatar,
-                      icon: const Icon(Icons.photo),
-                      label: const Text('Change avatar'),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Edit Profile',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                const SizedBox(height: 20),
+                
+                // Profile Picture - Clickable
+                Center(
+                  child: GestureDetector(
+                    onTap: _saving ? null : _pickAndUploadAvatar,
+                    child: Stack(
+                      children: [
+                        const _AvatarImage(radius: 50),
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.primary,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Theme.of(context).colorScheme.surface,
+                                width: 2,
+                              ),
+                            ),
+                            child: Icon(
+                              Icons.camera_alt,
+                              size: 20,
+                              color: Theme.of(context).colorScheme.onPrimary,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
+                ),
+                const SizedBox(height: 8),
+                Center(
+                  child: Text(
+                    'Tap to change profile picture',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.grey.shade600,
+                        ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                
+                // Display Name
+                TextField(
+                  controller: _name,
+                  decoration: const InputDecoration(
+                    labelText: 'Display name',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
+                // Email Section
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Email Address',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        setState(() => _showEmailField = !_showEmailField);
+                      },
+                      child: Text(_showEmailField ? 'Cancel' : 'Change'),
+                    ),
+                  ],
+                ),
+                if (_showEmailField) ...[
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _email,
+                    decoration: const InputDecoration(
+                      labelText: 'New email',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.email),
+                    ),
+                    keyboardType: TextInputType.emailAddress,
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
                     child: FilledButton.icon(
-                      onPressed: _saving ? null : _saveName,
+                      onPressed: _saving ? null : _changeEmail,
                       icon: _saving
                           ? const SizedBox(
                               height: 16,
                               width: 16,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Icon(Icons.save),
-                      label: const Text('Save'),
+                          : const Icon(Icons.check),
+                      label: const Text('Update Email'),
                     ),
                   ),
                 ],
-              ),
-            ],
+                const SizedBox(height: 16),
+                
+                // Password Section
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Password',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        setState(() => _showPasswordFields = !_showPasswordFields);
+                      },
+                      child: Text(_showPasswordFields ? 'Cancel' : 'Change'),
+                    ),
+                  ],
+                ),
+                if (_showPasswordFields) ...[
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _newPassword,
+                    decoration: const InputDecoration(
+                      labelText: 'New password',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.lock),
+                    ),
+                    obscureText: true,
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _confirmPassword,
+                    decoration: const InputDecoration(
+                      labelText: 'Confirm password',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.lock_outline),
+                    ),
+                    obscureText: true,
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: _saving ? null : _changePassword,
+                      icon: _saving
+                          ? const SizedBox(
+                              height: 16,
+                              width: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.check),
+                      label: const Text('Update Password'),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 24),
+                
+                // Update Profile Button
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _saving ? null : _saveName,
+                    icon: _saving
+                        ? const SizedBox(
+                            height: 16,
+                            width: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.save),
+                    label: const Text('Update Profile'),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
