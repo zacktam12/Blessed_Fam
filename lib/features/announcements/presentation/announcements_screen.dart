@@ -12,6 +12,8 @@ class AnnouncementsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isAdminAsync = ref.watch(isAdminProvider);
+    final session = ref.watch(currentSessionProvider);
+    final currentUserId = session?.user.id;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Announcements')),
@@ -30,7 +32,7 @@ class AnnouncementsScreen extends ConsumerWidget {
                     final a = data[i];
                     return _AnnouncementCard(
                       announcement: a,
-                      isAdmin: isAdmin,
+                      canEdit: isAdmin || (currentUserId != null && a.postedBy == currentUserId),
                       onEdit: () async {
                         final result = await Navigator.push<bool>(
                           context,
@@ -65,12 +67,12 @@ class AnnouncementsScreen extends ConsumerWidget {
 class _AnnouncementCard extends StatefulWidget {
   const _AnnouncementCard({
     required this.announcement,
-    required this.isAdmin,
+    required this.canEdit,
     required this.onEdit,
   });
 
   final Announcement announcement;
-  final bool isAdmin;
+  final bool canEdit;
   final VoidCallback onEdit;
 
   @override
@@ -115,7 +117,7 @@ class _AnnouncementCardState extends State<_AnnouncementCard> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                if (widget.isAdmin)
+                if (widget.canEdit)
                   IconButton(
                     icon: const Icon(Icons.edit_outlined, size: 20),
                     tooltip: 'Edit/Delete',
