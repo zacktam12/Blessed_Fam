@@ -1,4 +1,5 @@
 // deno-lint-ignore-file no-explicit-any
+/// <reference path="../deno.d.ts" />
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 
@@ -21,7 +22,7 @@ const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
  * Admin-only function to create new users
  * Requires authentication and admin role
  */
-serve(async (req) => {
+serve(async (req: Request) => {
   // Check authentication
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) {

@@ -1,0 +1,40 @@
+# Supabase Edge Function Cron Job Configuration
+# 
+# To set up automated weekly performance computation:
+#
+# 1. Go to your Supabase Dashboard
+# 2. Navigate to Database > Cron Jobs (pg_cron)
+# 3. Create a new cron job with the following settings:
+#
+# Name: compute_weekly_performance
+# Schedule: Every Monday at 00:00 UTC (0 0 * * 1)
+# Command:
+
+SELECT 
+  net.http_post(
+    url := 'YOUR_SUPABASE_PROJECT_URL/functions/v1/compute_weekly_performance',
+    headers := jsonb_build_object(
+      'Authorization', 'Bearer YOUR_ANON_KEY',
+      'Content-Type', 'application/json'
+    ),
+    body := '{}'::jsonb
+  ) AS request_id;
+
+# Replace:
+# - YOUR_SUPABASE_PROJECT_URL with your Supabase project URL
+# - YOUR_ANON_KEY with your Supabase anon key
+#
+# Alternative Schedule Options:
+# - Every Sunday at 11:59 PM: 59 23 * * 0
+# - Every day at midnight: 0 0 * * *
+# - First day of month: 0 0 1 * *
+#
+# Manual Trigger via curl:
+# curl -X POST "https://YOUR_PROJECT.supabase.co/functions/v1/compute_weekly_performance" \
+#   -H "Authorization: Bearer YOUR_ANON_KEY" \
+#   -H "Content-Type: application/json"
+#
+# Compute specific week:
+# curl -X POST "https://YOUR_PROJECT.supabase.co/functions/v1/compute_weekly_performance?week_start=2025-01-27" \
+#   -H "Authorization: Bearer YOUR_ANON_KEY" \
+#   -H "Content-Type: application/json"
