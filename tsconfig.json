@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ES2020",
+    "moduleResolution": "node",
+    "allowJs": true,
+    "checkJs": false,
+    "baseUrl": ".",
+    "lib": ["ES2020", "DOM"],
+    "paths": {
+      "https://deno.land/std@0.177.0/http/server.ts": [
+        "supabase/functions/stubs/server.d.ts"
+      ],
+      "https://esm.sh/@supabase/supabase-js@2.39.0": [
+        "supabase/functions/stubs/supabase-js.d.ts"
+      ]
+    }
+  },
+  "include": ["supabase/functions/**/*", "lib/**/*"]
+}

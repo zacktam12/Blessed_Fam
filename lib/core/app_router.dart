@@ -11,6 +11,7 @@ import '../features/announcements/presentation/announcements_screen.dart';
 import '../features/announcements/presentation/admin_create_announcement_screen.dart';
 import '../features/admin/presentation/admin_create_user_screen.dart';
 import '../features/admin/presentation/admin_analytics_screen.dart';
+import '../features/admin/presentation/manage_sessions_screen.dart';
 import 'providers/auth_providers.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -42,6 +43,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
           path: '/admin/analytics',
           builder: (c, s) => const AdminAnalyticsScreen()),
+      GoRoute(
+          path: '/admin/manage-sessions',
+          builder: (c, s) => const ManageSessionsScreen()),
     ],
     redirect: (context, state) {
       // Allow a small set of public, unauthenticated routes so things like
